@@ -30,10 +30,12 @@
 using namespace cv;
 using namespace std;
 
+
+const String window_detection_name = "sliders";
 const int max_value_H = 180;
 const int max_value = 255;
-int low_H = 170, low_S = 175, low_V = 35;
-int high_H = 180, high_S = 255, high_V = 180;
+int low_H = 0, low_S = 0, low_V = 0;
+int high_H = 179, high_S = 255, high_V = 255;
 
 
 double angle( Point pt1, Point pt2, Point pt0 ) {
@@ -43,7 +45,6 @@ double angle( Point pt1, Point pt2, Point pt0 ) {
     double dy2 = pt2.y - pt0.y;
     return (dx1*dx2 + dy1*dy2)/sqrt((dx1*dx1 + dy1*dy1)*(dx2*dx2 + dy2*dy2) + 1e-10);
 }
-
 
 
 
@@ -175,24 +176,37 @@ void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
                     // Note: absolute value of an area is used because
                     // area may be positive or negative - in accordance with the
                     // contour orientation
-                    if (approx.size() > 4 && approx.size() < 8 &&
+                    if (approx.size() > 5 && approx.size() < 9 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
                             double maxCosine = 0;
-                            int nov = approx.size();
-                            for (int j = 2; j < nov+1; j++)
+                            for (int j = 2; j < 6; j++)
                             {
-                                    double cosine = fabs(angle(approx[j%nov], approx[j-2], approx[j-1]));
+                                    double cosine = fabs(angle(approx[j%6], approx[j-2], approx[j-1]));
                                     maxCosine = MAX(maxCosine, cosine);
                             }
-
-                            if (maxCosine < 0.3)
+                            if (maxCosine < 1)
                                     stopSigns.push_back(approx);
+                               
                     }
             }
         }
-    }
+    }    if (stopSigns.size() > 0)
+                    {
+                        std::cout << "found sign" << std::endl;
+                        std::cout << contourArea(stopSigns[0]) << std::endl;
+                    }
+         if (stopSigns.size() > 0 && contourArea(stopSigns[0]) >14000 && contourArea(stopSigns[0]) < 15500)
+         {
+           std::cout << "close to stop sign, start hardcoded sequence" << std::endl; 
+         }
+
+        else 
+        {
+            std::cout << "no sign in sight" << std::endl;
+        }
+
 }
 
 
@@ -214,6 +228,7 @@ Mat debugStop(vector<vector<Point> > stopSigns, Mat image )
 
 
 int32_t main(int32_t argc, char **argv) {
+    opendlv::proxy::sizeReading msg;
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     
@@ -271,35 +286,31 @@ int32_t main(int32_t argc, char **argv) {
                 //squares list for ACC
                 vector<vector<Point> > squares;
                 vector<vector<Point> > stopSigns;
-                //crop image to reduce the amount of pixels to check for the algorithm.
-                cv::Rect croptest(0, 0, 640, 370);
+
+                   //crop image to reduce the amount of pixels to check for the algorithm.
+               /* cv::Rect croptest(0, 0, 640, 370);  Error when executing run on car ()
                 cv::Rect cropSign(450, 30, 620, 380);
                 cv::Mat croppedImage = img(croptest);
-                cv::Mat croppedSign = img(cropSign);
+                cv::Mat croppedSign = img(cropSign);*/
                 //converts cropped image to HSV
-                cvtColor(croppedSign, stop_HSV, COLOR_BGR2HSV);
-                cvtColor(croppedImage, frame_HSV, COLOR_BGR2HSV);
+                cvtColor(img, stop_HSV, COLOR_BGR2HSV);
+                cvtColor(img, frame_HSV, COLOR_BGR2HSV);
                 //sets the Hue/Saturation/Value for the ACC car (red) and then uses that threshold to find squares
-                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);
-                inRange(frame_HSV, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), frame_threshold);
+                inRange(stop_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);
+                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold); // lowH lowS lowV HighH highS HighV
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
               
                 // Display image.
                 if (VERBOSE) {
-                   cv::imshow("funspace", debugSquares(squares, croppedImage));
-                   cv::imshow("funspace", debugStop(stopSigns, croppedSign));
-                    //checks square (car) size to determine speed of car.
-                    if (stopSigns.size() > 0)
-                    {
-                        std::cout << "found sign" << std::endl;
-                        std::cout << contourArea(stopSigns[0]);
-                    }
-
-                    if (squares.size() > 0)
+                   cv::imshow("funspace", debugSquares(squares, img));
+                   cv::imshow("funspace", debugStop(stopSigns, img));
+                   cv::imshow("threshold", stop_threshold);
+                   cv::imshow("thresholdcar", frame_threshold);
+                 
+                 if (squares.size() > 0)
                     {
                         float carSize = contourArea(squares[0]);
-                        opendlv::proxy::sizeReading msg;
 
                         msg.size(carSize);
 
@@ -338,6 +349,12 @@ int32_t main(int32_t argc, char **argv) {
                     {
                         std::cout <<"no square found " << std::endl;
                     }
+
+    std::cout <<"size of square array : " <<squares.size() << std::endl;
+    squares.clear();
+
+
+
                     cv::waitKey(1);
                 }
             }
