@@ -369,3 +369,9 @@ message opendlv.logic.cognition.GroundSpeedLimit [id = 1192] {
 message opendlv.proxy.sizeReading [id = 2999] {
   float size [id = 1];
 }
+
+message opendlv.proxy.signRec [id = 3002] {
+  bool rightSign [id = 1];
+  bool leftSign [id = 2];
+  bool straightSign [id = 3];
+}

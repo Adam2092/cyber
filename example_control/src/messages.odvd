@@ -380,3 +380,13 @@ message opendlv.proxy.sizeReading [id = 2999] {
   float size [id = 1];
 }
 
+message opendlv.proxy.followSpeed [id = 3000] {
+  float speed [id = 1];
+}
+
+message opendlv.proxy.instructions [id = 3001] {
+  bool turn [id = 1];
+  bool follow [id = 2];
+  string direction [id = 3];
+}
+
