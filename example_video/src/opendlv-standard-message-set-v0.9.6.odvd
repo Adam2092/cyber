@@ -370,6 +370,14 @@ message opendlv.proxy.sizeReading [id = 2999] {
   float size [id = 1];
 }
 
+
+message opendlv.proxy.signRec [id = 3002] {
+  bool rightSign [id = 1];
+  bool leftSign [id = 2];
+  bool straightSign [id = 3];
+}
+
 message opendlv.proxy.stopReading [id = 1558] {
   float stop [id = 1];
 }
+
