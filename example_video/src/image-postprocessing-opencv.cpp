@@ -31,13 +31,13 @@ using namespace cv;
 using namespace std;
 
 
-const String window_detection_name = "sliders";
+
 const int max_value_H = 180;
 const int max_value = 255;
 int low_H = 0, low_S = 0, low_V = 0;
 int high_H = 179, high_S = 255, high_V = 255;
-
-
+bool byStop = false;
+bool notRight = false;
 double angle( Point pt1, Point pt2, Point pt0 ) {
     double dx1 = pt1.x - pt0.x;
     double dy1 = pt1.y - pt0.y;
@@ -57,7 +57,193 @@ void find_squares(Mat& image, vector<vector<Point> >& squares)
     Mat gray0(blurred.size(), CV_8U), gray;
     vector<vector<Point> > contours;
 
-    // find squares in every color plane of the image
+    // find squares in every color plane of the image (only threshold level in our case for blue square)
+    for (int c = 0; c < 1; c++)
+    {
+        int ch[] = {c, 0};
+        mixChannels(&blurred, 1, &gray0, 1, ch, 1);
+        const int threshold_level = 2;
+        for (int l = 0; l < threshold_level; l++)
+        {
+            // Use Canny instead of zero threshold level!
+            // Canny helps to catch squares with gradient shading
+            if (l == 0)
+            {
+                Canny(gray0, gray, 10, 20, 3); //
+
+                // Dilate helps to remove potential holes between edge segments
+                dilate(gray, gray, Mat(), Point(-1,-1));
+            }
+            else
+            {
+                    gray = gray0 >= (l+1) * 255 / threshold_level;
+            }
+
+            // Find contours and store them in a list
+            findContours(gray, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
+
+            // Test contours
+            vector<Point> approx;
+            for (size_t i = 0; i < contours.size(); i++)
+            {
+                    // approximate contour with accuracy proportional
+                    // to the contour perimeter
+                    approxPolyDP(Mat(contours[i]), approx, arcLength(Mat(contours[i]), true)*0.02, true);
+
+                    // Note: absolute value of an area is used because
+                    // area may be positive or negative - in accordance with the
+                    // contour orientation
+                    //checks for amount of vector points, if == 4 (square) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
+                    if (approx.size() == 4 &&
+                            fabs(contourArea(Mat(approx))) > 1000 &&
+                            isContourConvex(Mat(approx)))
+                    {
+                            double maxCosine = 0;
+
+                            //checks the angles between vectors to see if it's a reasonable angle, and if it's accepted, the square is added to the squares list.
+                            for (int j = 2; j < 5; j++)
+                            {
+                                    double cosine = fabs(angle(approx[j%4], approx[j-2], approx[j-1]));
+                                    maxCosine = MAX(maxCosine, cosine);
+                            }
+
+                            if (maxCosine < 0.3)
+                                    squares.push_back(approx);
+                    }
+            }
+        }
+    }
+}
+
+Mat debugSquares( vector<vector<Point> > squares, Mat image )
+{
+    for ( unsigned int i = 0; i< squares.size(); i++ ) {
+        // draw contour
+        drawContours(image, squares, i, Scalar(255,0,0), 1, 8, vector<Vec4i>(), 0, Point());
+
+        // draw bounding rect around the square in pos i.
+        Rect rect = boundingRect(Mat(squares[i]));
+        rectangle(image, rect.tl(), rect.br(), Scalar(0,255,0), 2, 8, 0);
+
+    }
+
+    return image;
+}
+
+
+void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
+{
+    // blur will enhance edge detection
+    Mat blurred(image);
+    medianBlur(image, blurred, 9);
+
+    Mat gray0(blurred.size(), CV_8U), gray;
+    vector<vector<Point> > contours;
+
+    // find hexagons in every color plane of the image (only threshold level in our case for red hexagons)
+    for (int c = 0; c < 1; c++)
+    {
+        int ch[] = {c, 0};
+        mixChannels(&blurred, 1, &gray0, 1, ch, 1);
+      
+        const int threshold_level = 2;
+        for (int l = 0; l < threshold_level; l++)
+        {
+            // Use Canny instead of zero threshold level!
+            // Canny helps to catch hexagons with gradient shading
+            if (l == 0)
+            {
+                Canny(gray0, gray, 10, 20, 3); //
+
+                // Dilate helps to remove potential holes between edge segments
+                dilate(gray, gray, Mat(), Point(-1,-1));
+            }
+            else
+            {
+                    gray = gray0 >= (l+1) * 255 / threshold_level;
+            }
+
+            // Find contours and store them in a list
+            findContours(gray, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
+
+            // Test contours
+            vector<Point> approx;
+            for (size_t i = 0; i < contours.size(); i++)
+            {
+                    // approximate contour with accuracy proportional
+                    // to the contour perimeter
+                    approxPolyDP(Mat(contours[i]), approx, arcLength(Mat(contours[i]), true)*0.02, true);
+
+                    // Note: absolute value of an area is used because
+                    // area may be positive or negative - in accordance with the
+                    // contour orientation
+                    //checks for amount of vector points, if  amount of vectors are between 6-->8 (hexagon) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
+                    //                                                              The reason for 6-->8 instead of only 6 is because of the imperfection of the hexagon making small vectors appear.
+                    if (approx.size() > 5 && approx.size() < 9 &&
+                            fabs(contourArea(Mat(approx))) > 1000 &&
+                            isContourConvex(Mat(approx)))
+                    {
+                            double maxCosine = 0;
+                            for (int j = 2; j < 6; j++)
+                            {
+                                    double cosine = fabs(angle(approx[j%6], approx[j-2], approx[j-1]));
+                                    maxCosine = MAX(maxCosine, cosine);
+                            }
+                            //if maxcosine is less than 1, it counts as a hexagon and is added to stopSigns.
+                            if (maxCosine < 1)
+                                    stopSigns.push_back(approx);
+                               
+                    }
+            }
+        }
+    }    if (stopSigns.size() > 0)
+                    {
+                        std::cout << "found sign" << std::endl;
+                        std::cout << contourArea(stopSigns[0]) << std::endl;
+                    }
+
+                //if stopsign is between the area 14000 and 155000, it means we are close enough to begin the stop sequence.
+         if (stopSigns.size() > 0 && contourArea(stopSigns[0]) >14000 && contourArea(stopSigns[0]) < 15500)
+         {
+            //sets bystop boolean to true
+           std::cout << "close to stop sign, start hardcoded sequence" << std::endl;
+           byStop = true;
+         }
+
+        else 
+        {
+            std::cout << "no sign in sight" << std::endl;
+        }
+
+}
+
+
+Mat debugStop(vector<vector<Point> > stopSigns, Mat image )
+{
+    for ( unsigned int i = 0; i< stopSigns.size(); i++ ) {
+        // draw contour
+        drawContours(image, stopSigns, i, Scalar(255,0,0), 1, 8, vector<Vec4i>(), 0, Point());
+
+        // draw bounding rect around the stopsign
+        Rect rect = boundingRect(Mat(stopSigns[i]));
+        rectangle(image, rect.tl(), rect.br(), Scalar(0,255,0), 2, 8, 0);
+
+    }
+
+    return image;
+}
+
+
+void find_sign(Mat& image, vector<vector<Point> >& sign)
+{
+    // blur will enhance edge detection
+    Mat blurred(image);
+    medianBlur(image, blurred, 9);
+
+    Mat gray0(blurred.size(), CV_8U), gray;
+    vector<vector<Point> > contours;
+
+    // find triangles in every color plane of the image
     for (int c = 0; c < 1; c++)
     {
         int ch[] = {c, 0};
@@ -94,130 +280,42 @@ void find_squares(Mat& image, vector<vector<Point> >& squares)
                     // Note: absolute value of an area is used because
                     // area may be positive or negative - in accordance with the
                     // contour orientation
-                    if (approx.size() == 4 &&
+                     //checks for amount of vector points, if  amount of vectors are between 2-->8 (Triangle) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
+                    //                                                              The reason for 2-->8 instead of only 3 is because of the imperfection of the triangle making small vectors appear.
+                    // triangle will not be as sharp as preffered, which makes the corners a bit round, hence why the big window of vectors are allowed.
+                    if (approx.size() > 2 && approx.size() < 8 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
                             double maxCosine = 0;
 
-                            for (int j = 2; j < 5; j++)
+                            for (int j = 2; j < 4; j++)
                             {
-                                    double cosine = fabs(angle(approx[j%4], approx[j-2], approx[j-1]));
+                                    double cosine = fabs(angle(approx[j%3], approx[j-2], approx[j-1]));
                                     maxCosine = MAX(maxCosine, cosine);
+                                    std::cout << "Max Cosine Triangle: " << maxCosine << std::endl;
                             }
 
-                            if (maxCosine < 0.3)
-                                    squares.push_back(approx);
-                    }
-            }
-        }
-    }
-}
-
-Mat debugSquares( vector<vector<Point> > squares, Mat image )
-{
-    for ( unsigned int i = 0; i< squares.size(); i++ ) {
-        // draw contour
-        drawContours(image, squares, i, Scalar(255,0,0), 1, 8, vector<Vec4i>(), 0, Point());
-
-        // draw bounding rect
-        Rect rect = boundingRect(Mat(squares[i]));
-        rectangle(image, rect.tl(), rect.br(), Scalar(0,255,0), 2, 8, 0);
-
-    }
-
-    return image;
-}
-
-
-void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
-{
-    // blur will enhance edge detection
-    Mat blurred(image);
-    medianBlur(image, blurred, 9);
-
-    Mat gray0(blurred.size(), CV_8U), gray;
-    vector<vector<Point> > contours;
-
-    // find hexagons in every color plane of the image
-    for (int c = 0; c < 1; c++)
-    {
-        int ch[] = {c, 0};
-        mixChannels(&blurred, 1, &gray0, 1, ch, 1);
-        // try several threshold levels
-        const int threshold_level = 2;
-        for (int l = 0; l < threshold_level; l++)
-        {
-            // Use Canny instead of zero threshold level!
-            // Canny helps to catch hexagons with gradient shading
-            if (l == 0)
-            {
-                Canny(gray0, gray, 10, 20, 3); //
-
-                // Dilate helps to remove potential holes between edge segments
-                dilate(gray, gray, Mat(), Point(-1,-1));
-            }
-            else
-            {
-                    gray = gray0 >= (l+1) * 255 / threshold_level;
-            }
-
-            // Find contours and store them in a list
-            findContours(gray, contours, RETR_LIST, CHAIN_APPROX_SIMPLE);
-
-            // Test contours
-            vector<Point> approx;
-            for (size_t i = 0; i < contours.size(); i++)
-            {
-                    // approximate contour with accuracy proportional
-                    // to the contour perimeter
-                    approxPolyDP(Mat(contours[i]), approx, arcLength(Mat(contours[i]), true)*0.02, true);
-
-                    // Note: absolute value of an area is used because
-                    // area may be positive or negative - in accordance with the
-                    // contour orientation
-                    if (approx.size() > 5 && approx.size() < 9 &&
-                            fabs(contourArea(Mat(approx))) > 1000 &&
-                            isContourConvex(Mat(approx)))
-                    {
-                            double maxCosine = 0;
-                            for (int j = 2; j < 6; j++)
-                            {
-                                    double cosine = fabs(angle(approx[j%6], approx[j-2], approx[j-1]));
-                                    maxCosine = MAX(maxCosine, cosine);
-                            }
+                            // if masCosine is less than 1, it gets pushed to the sign list and notRight boolean is set to true.
                             if (maxCosine < 1)
-                                    stopSigns.push_back(approx);
-                               
+                                    sign.push_back(approx);
+                                notRight = true;
+                                std::cout << "not allowed to turn right: " << notRight << std::endl;;
                     }
             }
         }
-    }    if (stopSigns.size() > 0)
-                    {
-                        std::cout << "found sign" << std::endl;
-                        std::cout << contourArea(stopSigns[0]) << std::endl;
-                    }
-         if (stopSigns.size() > 0 && contourArea(stopSigns[0]) >14000 && contourArea(stopSigns[0]) < 15500)
-         {
-           std::cout << "close to stop sign, start hardcoded sequence" << std::endl; 
-         }
-
-        else 
-        {
-            std::cout << "no sign in sight" << std::endl;
-        }
-
+    }
 }
 
 
-Mat debugStop(vector<vector<Point> > stopSigns, Mat image )
+Mat debugSign(vector<vector<Point> > sign, Mat image )
 {
-    for ( unsigned int i = 0; i< stopSigns.size(); i++ ) {
+    for ( unsigned int i = 0; i< sign.size(); i++ ) {
         // draw contour
-        drawContours(image, stopSigns, i, Scalar(255,0,0), 1, 8, vector<Vec4i>(), 0, Point());
+        drawContours(image, sign, i, Scalar(255,0,0), 1, 8, vector<Vec4i>(), 0, Point());
 
-        // draw bounding rect
-        Rect rect = boundingRect(Mat(stopSigns[i]));
+        // draw bounding rect around the detected sign.
+        Rect rect = boundingRect(Mat(sign[i]));
         rectangle(image, rect.tl(), rect.br(), Scalar(0,255,0), 2, 8, 0);
 
     }
@@ -229,6 +327,7 @@ Mat debugStop(vector<vector<Point> > stopSigns, Mat image )
 
 int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::sizeReading msg;
+    opendlv::proxy::stopReading msg2;
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     
@@ -279,36 +378,47 @@ int32_t main(int32_t argc, char **argv) {
                 }
                 sharedMemory->unlock();
 
+             
+                
                 // TODO: Do something with the frame.
                 //declaring hsv, hsv threshold frames.
-                cv::Mat frame_HSV, stop_HSV;//, stop_HSV;
-                cv::Mat frame_threshold, stop_threshold;//, stop_threshold;
-                //squares list for ACC
+                cv::Mat frame_HSV;//, stop_HSV;
+                cv::Mat frame_threshold, stop_threshold, sign_threshold;//, stop_threshold;
+                //different lists for squares (acc car), stopsign and signs for turning rules
                 vector<vector<Point> > squares;
                 vector<vector<Point> > stopSigns;
+                vector<vector<Point> > sign;
 
-                   //crop image to reduce the amount of pixels to check for the algorithm.
-               /* cv::Rect croptest(0, 0, 640, 370);  Error when executing run on car ()
-                cv::Rect cropSign(450, 30, 620, 380);
-                cv::Mat croppedImage = img(croptest);
-                cv::Mat croppedSign = img(cropSign);*/
-                //converts cropped image to HSV
-                cvtColor(img, stop_HSV, COLOR_BGR2HSV);
+                //crop image to reduce the amount of pixels to check for the algorithm.
+                //cv::Rect croptest(0, 0, 640, 370); 
+                //cv::Rect cropSign(450, 30, 620, 380);
+                //cv::Mat croppedImage = img(croptest);
+                //cv::Mat croppedStop = cropCopy(cropSign);
+
+                //converts the image that we copied from shared memory to HSV and save it as an HSV image called frame_HSV
                 cvtColor(img, frame_HSV, COLOR_BGR2HSV);
-                //sets the Hue/Saturation/Value for the ACC car (red) and then uses that threshold to find squares
-                inRange(stop_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);
-                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold); // lowH lowS lowV HighH highS HighV
+                
+                //sets the Hue/Saturation/Value for the different thresholds depending on if it's looking for car/stopsign/signs. (stop is red, car is blue and signs are green)
+                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);
+                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold); 
+                inRange(frame_HSV, Scalar(36, 124, 102), Scalar(81, 166, 145), sign_threshold);
+                //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
+                find_sign(sign_threshold, sign);
               
                 // Display image.
                 if (VERBOSE) {
+                    //displays window where it will draw the objects and their boundry rectangles.
                    cv::imshow("funspace", debugSquares(squares, img));
                    cv::imshow("funspace", debugStop(stopSigns, img));
-                   cv::imshow("threshold", stop_threshold);
-                   cv::imshow("thresholdcar", frame_threshold);
-                 
-                 if (squares.size() > 0)
+                   cv::imshow("funspace", debugSign(sign, img));
+
+                   cv::imshow("thresholdSign", sign_threshold);
+
+
+                // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
+                 if (squares.size() > 0 && byStop == false)
                     {
                         float carSize = contourArea(squares[0]);
 
@@ -345,13 +455,27 @@ int32_t main(int32_t argc, char **argv) {
                         }
                         
                     }
+
+                    //if byStop is true (we are by the stopsign), we stop following the car in front of us.
+                     else if (byStop == true)
+                    {
+                     float leavingCar = contourArea(squares[0]);
+                     bool stopseq = false;
+                     if (leavingCar > 10000)
+                     {
+                        msg2.stop(stopseq);
+
+                        od4.send(msg2);
+                    }
+                    }
+                    //if car infront is not detected, stop pedal.
                     else 
                     {
-                        std::cout <<"no square found " << std::endl;
+                        std::cout <<"no square found, stop car " << std::endl;
                     }
 
-    std::cout <<"size of square array : " <<squares.size() << std::endl;
-    squares.clear();
+                    //clears any remaining squares just in case they would linger.
+                    squares.clear();
 
 
 
