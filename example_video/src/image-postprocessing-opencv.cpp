@@ -130,6 +130,34 @@ Mat debugSquares( vector<vector<Point> > squares, Mat image )
     return image;
 }
 
+//this method corrects the car's placement depending on the car in front (pos is the centre of the acc car)
+void correct_turn(vector<Point> squares)
+{
+    Rect rect = boundingRect(Mat(squares));
+    double pos = rect.x+(rect.width/2);
+    std::cout << "rect pos is: " << pos << std::endl;
+   if( pos < 220)
+    {
+    std::cout << "turn hard left" << std::endl;
+    }
+   else if( pos < 290)
+    {
+    std::cout << "turn small left" << std::endl;
+    }
+    else if( pos > 420)
+    {
+    std::cout << "turn hard right" << std::endl;
+    }
+    else if( pos > 350)
+    {
+    std::cout << "turn small right" << std::endl;
+    }
+    else
+    {
+     std::cout << "no correction" << std::endl;   
+    }
+}
+
 
 void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
 {
@@ -212,10 +240,10 @@ void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
 
         else 
         {
-            std::cout << "no sign in sight" << std::endl;
         }
-
 }
+
+
 
 
 Mat debugStop(vector<vector<Point> > stopSigns, Mat image )
@@ -428,6 +456,8 @@ int32_t main(int32_t argc, char **argv) {
 
                         std::cout << "found square " << std::endl;
                         std::cout << carSize << std::endl;
+
+                        correct_turn(squares[0]);
 
                         if(carSize > 35000)
                         {
