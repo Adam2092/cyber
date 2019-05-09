@@ -38,6 +38,9 @@ int low_H = 0, low_S = 0, low_V = 0;
 int high_H = 179, high_S = 255, high_V = 255;
 bool byStop = false;
 bool notRight = false;
+bool notLeft = false;
+bool notForward = false;
+
 double angle( Point pt1, Point pt2, Point pt0 ) {
     double dx1 = pt1.x - pt0.x;
     double dy1 = pt1.y - pt0.y;
@@ -262,7 +265,7 @@ Mat debugStop(vector<vector<Point> > stopSigns, Mat image )
 }
 
 
-void find_sign(Mat& image, vector<vector<Point> >& sign)
+void find_sign(Mat& image, vector<vector<Point> >& sign, int version )
 {
     // blur will enhance edge detection
     Mat blurred(image);
@@ -311,7 +314,7 @@ void find_sign(Mat& image, vector<vector<Point> >& sign)
                      //checks for amount of vector points, if  amount of vectors are between 2-->8 (Triangle) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
                     //                                                              The reason for 2-->8 instead of only 3 is because of the imperfection of the triangle making small vectors appear.
                     // triangle will not be as sharp as preffered, which makes the corners a bit round, hence why the big window of vectors are allowed.
-                    if (approx.size() > 2 && approx.size() < 8 &&
+                    if (approx.size() > 2 && approx.size() < 6 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
@@ -321,14 +324,27 @@ void find_sign(Mat& image, vector<vector<Point> >& sign)
                             {
                                     double cosine = fabs(angle(approx[j%3], approx[j-2], approx[j-1]));
                                     maxCosine = MAX(maxCosine, cosine);
-                                    std::cout << "Max Cosine Triangle: " << maxCosine << std::endl;
+                                   
                             }
 
                             // if masCosine is less than 1, it gets pushed to the sign list and notRight boolean is set to true.
                             if (maxCosine < 1)
-                                    sign.push_back(approx);
+                            {
+                                sign.push_back(approx);
+
+                                if(version == 1){
                                 notRight = true;
-                                std::cout << "not allowed to turn right: " << notRight << std::endl;;
+                               std::cout << "not allowed to turn right: " << notRight << std::endl;
+                                }
+                                if(version == 2){
+                                notLeft = true;
+                                std::cout << "not allowed to turn left: " << notRight << std::endl;
+                                }
+                                if(version == 3){
+                                notForward = true;
+                                std::cout << "not allowed to go straight: " << notRight << std::endl;
+                                }
+                            }
                     }
             }
         }
@@ -411,7 +427,7 @@ int32_t main(int32_t argc, char **argv) {
                 // TODO: Do something with the frame.
                 //declaring hsv, hsv threshold frames.
                 cv::Mat frame_HSV;//, stop_HSV;
-                cv::Mat frame_threshold, stop_threshold, sign_threshold;//, stop_threshold;
+                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold;//, stop_threshold;
                 //different lists for squares (acc car), stopsign and signs for turning rules
                 vector<vector<Point> > squares;
                 vector<vector<Point> > stopSigns;
@@ -427,13 +443,19 @@ int32_t main(int32_t argc, char **argv) {
                 cvtColor(img, frame_HSV, COLOR_BGR2HSV);
                 
                 //sets the Hue/Saturation/Value for the different thresholds depending on if it's looking for car/stopsign/signs. (stop is red, car is blue and signs are green)
-                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);
-                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold); 
-                inRange(frame_HSV, Scalar(36, 124, 102), Scalar(81, 166, 145), sign_threshold);
+                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold); // Stop sign (red)
+                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold); // Acc car (dark blue)
+                inRange(frame_HSV, Scalar(55, 92, 43), Scalar(88, 171, 100), sign1_threshold); //Green
+                inRange(frame_HSV, Scalar(88, 174, 86), Scalar(126, 235, 139), sign2_threshold); //Blue
+                inRange(frame_HSV, Scalar(5, 105, 101), Scalar(30, 210, 171), sign3_threshold); //Yellow
+               
                 //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
-                find_sign(sign_threshold, sign);
+                find_sign(sign1_threshold, sign, 1);
+                find_sign(sign2_threshold, sign, 2);
+                find_sign(sign3_threshold, sign, 3);
+
               
                 // Display image.
                 if (VERBOSE) {
@@ -442,11 +464,12 @@ int32_t main(int32_t argc, char **argv) {
                    cv::imshow("funspace", debugStop(stopSigns, img));
                    cv::imshow("funspace", debugSign(sign, img));
 
-                   cv::imshow("thresholdSign", sign_threshold);
-
+                   //cv::imshow("thresholdSign", sign_threshold);
+                  
+                                 
 
                 // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
-                 if (squares.size() > 0 && byStop == false)
+                   if (squares.size() > 0 && byStop == false)
                     {
                         float carSize = contourArea(squares[0]);
 
