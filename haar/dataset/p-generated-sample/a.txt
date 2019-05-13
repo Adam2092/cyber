@@ -1,0 +1,2 @@
+opencv_createsamples -img p/output-onlinepngtools\ \(1\).png -bg ../neg.lst -info cropped00.txt -num 22 -maxxangle 0.0 -maxyangle 0.0 -maxzangle 0.3 -bgcolor 255 -bgthresh 8 -w 48 -h 48^C
+
