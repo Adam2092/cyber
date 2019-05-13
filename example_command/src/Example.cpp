@@ -60,7 +60,7 @@ int32_t main(int32_t argc, char **argv) {
         
 //-------_________-------__----_----_____---______--__----_----___-----__----__---_--------___-----__---------___----------_----_--__--
 
-        auto commandHandler{[&od4Command, VERBOSE, &turnLeftNo, &turnRightNo, &goStraightNo](cluon::data::Envelope &&envelope)
+        auto commandHandler{[&od4, VERBOSE, &turnLeftNo, &turnRightNo, &goStraightNo](cluon::data::Envelope &&envelope)
 
             {
 
@@ -82,7 +82,7 @@ int32_t main(int32_t argc, char **argv) {
 
         };
 
-                    od4Command.dataTrigger(opendlv::proxy::signRec::ID(), commandHandler);  
+                    od4.dataTrigger(opendlv::proxy::signRec::ID(), commandHandler);  
 
 //-------_________----------_____---__----_----____----______--____________-----_-___---_----________---------_____---___--__----_-
 
