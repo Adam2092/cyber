@@ -340,15 +340,15 @@ void find_sign(Mat& image, vector<vector<Point> >& sign, int version )
 
                                 if(version == 1){
                                 notRight = true;
-                               std::cout << "not allowed to turn right: " << notRight << std::endl;
+                               std::cout << "not allowed to turn right: " << std::endl;
                                 }
                                 if(version == 2){
                                 notLeft = true;
-                                std::cout << "not allowed to turn left: " << notRight << std::endl;
+                                std::cout << "not allowed to turn left: " << std::endl;
                                 }
                                 if(version == 3){
                                 notForward = true;
-                                std::cout << "not allowed to go straight: " << notRight << std::endl;
+                                std::cout << "not allowed to go straight: " << std::endl;
                                 }
                             }
                     }
@@ -420,6 +420,7 @@ void countDown(vector<vector<Point> >& amountcars)
 int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::sizeReading msg;
     opendlv::proxy::stopReading msg2;
+    opendlv::proxy::signRec msg3;
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     
@@ -501,7 +502,6 @@ int32_t main(int32_t argc, char **argv) {
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
 
-
               
                 // Display image.
                 if (VERBOSE) {
@@ -516,6 +516,21 @@ int32_t main(int32_t argc, char **argv) {
                    cv::imshow("funspace", debugStop(stopSigns, img));
                    cv::imshow("funspace", debugSign(sign, img));
 
+
+                   //cv::imshow("thresholdSign", sign_threshold);
+
+                   if(notRight == true || notLeft == true || notForward == true){
+
+                        msg3.rightSign(notRight);
+
+                        msg3.leftSign(notLeft);
+
+                        msg3.straightSign(notForward);
+
+                        od4.send(msg);
+
+                   }
+                  
 
                     //counts amount of cars in intersection  
                     if (byStop == false)
