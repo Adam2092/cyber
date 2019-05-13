@@ -34,12 +34,18 @@ using namespace std;
 
 const int max_value_H = 180;
 const int max_value = 255;
+int carleft = 0;
+int carright = 0;
+int carforward = 0;
+int queue = carleft+carright+carforward;
+
 int low_H = 0, low_S = 0, low_V = 0;
 int high_H = 179, high_S = 255, high_V = 255;
 bool byStop = false;
 bool notRight = false;
 bool notLeft = false;
 bool notForward = false;
+bool countcars = false;
 
 double angle( Point pt1, Point pt2, Point pt0 ) {
     double dx1 = pt1.x - pt0.x;
@@ -368,6 +374,48 @@ Mat debugSign(vector<vector<Point> > sign, Mat image )
 }
 
 
+void carCount(vector<vector<Point> >& amountcars)
+{
+    for ( unsigned int i = 0; i < amountcars.size(); i++)
+    {
+    Rect rect = boundingRect(Mat(amountcars[i]));
+    double carpos = rect.x;
+    //if a car is detected to the left and no previous car is detected, add 1 to carleft
+        if (carpos < 160 && carleft < 1)
+        {
+        carleft ++;
+        queue ++;
+        
+        }
+        //if a car is detected in the middle and no previous car is detected, add 1 to carforward
+        if (carpos > 160 && carpos < 425 && carforward < 1)
+        {
+        carforward ++;
+        queue++;
+        }
+         if (carpos > 425 && carright < 1)
+        {
+        queue++;
+        carforward ++;
+        }
+    }
+}
+
+void countDown(vector<vector<Point> >& amountcars)
+{
+    for ( unsigned int i = 0; i < amountcars.size(); i++)
+    {
+    Rect rect = boundingRect(Mat(amountcars[i]));
+    double carposx = rect.x;
+    double carposy = rect.y;
+
+        if (carposx < 370 && carposx > 140 && carposy > 190 && carposy < 360)
+        {
+        queue --;
+        }
+    }
+}
+
 
 int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::sizeReading msg;
@@ -426,29 +474,26 @@ int32_t main(int32_t argc, char **argv) {
                 
                 // TODO: Do something with the frame.
                 //declaring hsv, hsv threshold frames.
-                cv::Mat frame_HSV;//, stop_HSV;
-                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold;//, stop_threshold;
+                cv::Mat frame_HSV;
+                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold, cars_threshold;//, stop_threshold;
                 //different lists for squares (acc car), stopsign and signs for turning rules
                 vector<vector<Point> > squares;
                 vector<vector<Point> > stopSigns;
                 vector<vector<Point> > sign;
+                vector<vector<Point> > cars;
 
-                //crop image to reduce the amount of pixels to check for the algorithm.
-                //cv::Rect croptest(0, 0, 640, 370); 
-                //cv::Rect cropSign(450, 30, 620, 380);
-                //cv::Mat croppedImage = img(croptest);
-                //cv::Mat croppedStop = cropCopy(cropSign);
-
+               
                 //converts the image that we copied from shared memory to HSV and save it as an HSV image called frame_HSV
                 cvtColor(img, frame_HSV, COLOR_BGR2HSV);
                 
                 //sets the Hue/Saturation/Value for the different thresholds depending on if it's looking for car/stopsign/signs. (stop is red, car is blue and signs are green)
-                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold); // Stop sign (red)
-                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold); // Acc car (dark blue)
-                inRange(frame_HSV, Scalar(55, 92, 43), Scalar(88, 171, 100), sign1_threshold); //Green
-                inRange(frame_HSV, Scalar(88, 174, 86), Scalar(126, 235, 139), sign2_threshold); //Blue
-                inRange(frame_HSV, Scalar(5, 105, 101), Scalar(30, 210, 171), sign3_threshold); //Yellow
-               
+                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);   // Stop sign (red)
+                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold);  // Acc car (dark blue)
+                inRange(frame_HSV, Scalar(55, 92, 43), Scalar(88, 171, 100), sign1_threshold);   //Green
+                inRange(frame_HSV, Scalar(88, 174, 86), Scalar(126, 235, 139), sign2_threshold);//Blue
+                inRange(frame_HSV, Scalar(5, 105, 101), Scalar(30, 210, 171), sign3_threshold);//Yellow
+                
+
                 //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
@@ -456,19 +501,29 @@ int32_t main(int32_t argc, char **argv) {
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
 
+
               
                 // Display image.
                 if (VERBOSE) {
+
+                   //draws a square around the countdown position
+                   rectangle(img, Point(140,190), Point(370,360), Scalar(255,0,0), 2, 8, 0);
+                   rectangle(img, Point(0,0), Point(160,480), Scalar(0,0,255), 2, 8, 0);
+                   rectangle(img, Point(160,0), Point(425,480), Scalar(0,0,255), 2, 8, 0);
+                   rectangle(img, Point(425,0), Point(640,480), Scalar(0,0,255), 2, 8, 0);
                     //displays window where it will draw the objects and their boundry rectangles.
                    cv::imshow("funspace", debugSquares(squares, img));
                    cv::imshow("funspace", debugStop(stopSigns, img));
                    cv::imshow("funspace", debugSign(sign, img));
 
-                   //cv::imshow("thresholdSign", sign_threshold);
-                  
-                                 
 
-                // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
+                    //counts amount of cars in intersection  
+                    if (byStop == false)
+                    {           
+                    carCount(cars);
+                    }
+
+                    // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
                    if (squares.size() > 0 && byStop == false)
                     {
                         float carSize = contourArea(squares[0]);
@@ -502,7 +557,7 @@ int32_t main(int32_t argc, char **argv) {
                          std::cout << "car long range,      pedal 0.15 " << std::endl;
                         }
 
-                        else
+                        else 
                         {
                          std::cout << "car very long range, pedal 0.20" << std::endl;
                         }
@@ -510,7 +565,7 @@ int32_t main(int32_t argc, char **argv) {
                     }
 
                     //if byStop is true (we are by the stopsign), we stop following the car in front of us.
-                     else if (byStop == true)
+                     else if (byStop == true && countcars == false)
                     {
                      float leavingCar = contourArea(squares[0]);
                      bool stopseq = false;
@@ -519,7 +574,14 @@ int32_t main(int32_t argc, char **argv) {
                         msg2.stop(stopseq);
 
                         od4.send(msg2);
+                        countcars = true;
                     }
+                    }
+
+                    else if (byStop == true && countcars == true)
+                    {
+                       countDown(cars);
+                      // delay(3s) //set this to 3 sec 
                     }
                     //if car infront is not detected, stop pedal.
                     else 
