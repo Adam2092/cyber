@@ -37,7 +37,7 @@ const int max_value = 255;
 int carleft = 0;
 int carright = 0;
 int carforward = 0;
-int queue = carleft+carright+carforward;
+int queue = 0;
 
 int low_H = 0, low_S = 0, low_V = 0;
 int high_H = 179, high_S = 255, high_V = 255;
@@ -45,7 +45,7 @@ bool byStop = false;
 bool notRight = false;
 bool notLeft = false;
 bool notForward = false;
-bool countcars = false;
+bool countcars = true;
 
 double angle( Point pt1, Point pt2, Point pt0 ) {
     double dx1 = pt1.x - pt0.x;
@@ -533,7 +533,7 @@ int32_t main(int32_t argc, char **argv) {
                   
 
                     //counts amount of cars in intersection  
-                    if (byStop == false)
+                    if (councars==true)
                     {           
                     carCount(cars);
                     }
@@ -580,7 +580,7 @@ int32_t main(int32_t argc, char **argv) {
                     }
 
                     //if byStop is true (we are by the stopsign), we stop following the car in front of us.
-                     else if (byStop == true && countcars == false)
+                     else if (byStop == true)
                     {
                      float leavingCar = contourArea(squares[0]);
                      bool stopseq = false;
@@ -589,7 +589,7 @@ int32_t main(int32_t argc, char **argv) {
                         msg2.stop(stopseq);
 
                         od4.send(msg2);
-                        countcars = true;
+                        
                     }
                     }
 
