@@ -1,3 +1,0 @@
-/home/duykamke/test2/CMakeFiles/rebuild_cache.dir
-/home/duykamke/test2/CMakeFiles/DisplayImage.dir
-/home/duykamke/test2/CMakeFiles/edit_cache.dir

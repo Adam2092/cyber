@@ -10,10 +10,10 @@ int main( int argc, const char** argv )
 {
     CommandLineParser parser(argc, argv,
                              "{help h||}"
-                             "{cascade|cascade.xml|Path to face cascade.}");
-    parser.about( "\nThis program demonstrates using the cv::CascadeClassifier class to detect objects (Face + eyes) in a video stream. You can use Haar or LBP features.\n\n" );
+                             "{cascade|../cascade/car-28.xml|Path to face cascade.}");
+    parser.about( "\nThis program demonstrates using the cv::CascadeClassifier class to detect cars in a video stream. You can use Haar or LBP features.\n\n" );
     parser.printMessage();
-    String face_cascade_name = parser.get<String>("./cascade/car");
+    String face_cascade_name = parser.get<String>("cascade");
     //-- 1. Load the cascades
     if( !cascade.load( face_cascade_name ) )
     {
@@ -22,7 +22,8 @@ int main( int argc, const char** argv )
     };
     VideoCapture capture;
     //-- 2. Read the video stream
-    capture.open("./recordings/rotate/pos/mp4/car-360-light-close.mp4"  );
+    //capture.open("../recordings/new-19-04-29/car-360-light.mp4"  );
+    capture.open(0);
     Mat frame;
     while ( capture.read(frame) )
     {
@@ -33,7 +34,7 @@ int main( int argc, const char** argv )
         }
         //-- 3. Apply the classifier to the frame
         detectAndDisplay( frame );
-        if( waitKey(10) == 27 )
+        if( waitKey(30) == 27 )
         {
             break; // escape
         }
@@ -47,13 +48,9 @@ void detectAndDisplay( Mat frame )
     equalizeHist( frame_gray, frame_gray );
     //-- Detect faces
     std::vector<Rect> cars;
-    cascade.detectMultiScale( frame_gray, cars, 1.05, 3, 6 );
-    for ( size_t i = 0; i < cars.size(); i++ )
-    {
-        Point center( cars[i].x + cars[i].width/2, cars[i].y + cars[i].height/2 );
-        ellipse( frame, center, Size( cars[i].width/2, cars[i].height/2 ), 0, 0, 360, Scalar( 255, 0, 255 ), 4 );
-        Mat faceROI = frame_gray( cars[i] );
-    }
+    cascade.detectMultiScale( frame_gray, cars, 1.1, 4 );
+    for (vector<Rect>::const_iterator r = cars.begin(); r != cars.end(); r++)
+	rectangle(frame, *r, Scalar(0,0,255), 2, 8,0);
     //-- Show what you got
     imshow( "Capture - Face detection", frame );
 }
