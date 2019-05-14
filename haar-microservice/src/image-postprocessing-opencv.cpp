@@ -29,6 +29,9 @@
 using namespace std;
 using namespace cv;
 CascadeClassifier cascade;
+bool countUp = true;
+bool countDown = false;
+int carQueue = 0;
 void detectAndDisplay( Mat frame )
 {
     Mat frame_gray;
@@ -88,14 +91,14 @@ int32_t main(int32_t argc, char **argv) {
                     cv::Mat wrapped(HEIGHT, WIDTH, CV_8UC4, sharedMemory->data());
                     frame = wrapped.clone();
                 }
-    		String cascade_name = "car-28.xml";
+
+                sharedMemory->unlock();
+		String cascade_name = "cascade/car-28.xml";
    		if( !cascade.load( cascade_name ) )
    		{
       		  cout << "--(!)Error loading cascade\n";
      		   return -1;
     		};
-                sharedMemory->unlock();
-		
         	detectAndDisplay( frame );
 
                 // Display image.
@@ -109,5 +112,3 @@ int32_t main(int32_t argc, char **argv) {
     }
     return retCode;
 }
-
-
