@@ -36,7 +36,7 @@ void detectAndDisplay( Mat frame )
     equalizeHist( frame_gray, frame_gray );
     //-- Detect faces
     std::vector<Rect> cars;
-    cascade.detectMultiScale( frame_gray, cars );
+    cascade.detectMultiScale( frame_gray, cars, 1.1, 4);
     for (vector<Rect>::const_iterator r = cars.begin(); r != cars.end(); r++)
 	rectangle(frame, *r, Scalar(0,0,255), 2, 8,0);
 }
