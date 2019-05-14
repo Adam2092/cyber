@@ -31,15 +31,21 @@ using namespace cv;
 using namespace std;
 
 
-
+const String window_detection_name = "sliders";
 const int max_value_H = 180;
 const int max_value = 255;
+int carleft = 0;
+int carright = 0;
+int carforward = 0;
+int queue = 0;
+
 int low_H = 0, low_S = 0, low_V = 0;
 int high_H = 179, high_S = 255, high_V = 255;
 bool byStop = false;
 bool notRight = false;
 bool notLeft = false;
 bool notForward = false;
+bool countcars = true;
 
 double angle( Point pt1, Point pt2, Point pt0 ) {
     double dx1 = pt1.x - pt0.x;
@@ -49,7 +55,36 @@ double angle( Point pt1, Point pt2, Point pt0 ) {
     return (dx1*dx2 + dy1*dy2)/sqrt((dx1*dx1 + dy1*dy1)*(dx2*dx2 + dy2*dy2) + 1e-10);
 }
 
-
+static void on_low_H_thresh_trackbar(int, void *)
+{
+    low_H = min(high_H-1, low_H);
+    setTrackbarPos("Low H", window_detection_name, low_H);
+}
+static void on_high_H_thresh_trackbar(int, void *)
+{
+    high_H = max(high_H, low_H+1);
+    setTrackbarPos("High H", window_detection_name, high_H);
+}
+static void on_low_S_thresh_trackbar(int, void *)
+{
+    low_S = min(high_S-1, low_S);
+      setTrackbarPos("Low S", window_detection_name, low_S);
+}
+static void on_high_S_thresh_trackbar(int, void *)
+{
+    high_S = max(high_S, low_S+1);
+    setTrackbarPos("High S", window_detection_name, high_S);
+}
+static void on_low_V_thresh_trackbar(int, void *)
+{
+    low_V = min(high_V-1, low_V);
+    setTrackbarPos("Low V", window_detection_name, low_V);
+}
+static void on_high_V_thresh_trackbar(int, void *)
+{
+    high_V = max(high_V, low_V+1);
+    setTrackbarPos("High V", window_detection_name, high_V);
+}
 
 void find_squares(Mat& image, vector<vector<Point> >& squares)
 {
@@ -371,6 +406,48 @@ Mat debugSign(vector<vector<Point> > sign, Mat image )
 }
 
 
+void carCount(vector<vector<Point> >& amountcars)
+{
+    for ( unsigned int i = 0; i < amountcars.size(); i++)
+    {
+    Rect rect = boundingRect(Mat(amountcars[i]));
+    double carpos = rect.x;
+    //if a car is detected to the left and no previous car is detected, add 1 to carleft
+        if (carpos < 160 && carleft < 1)
+        {
+        carleft ++;
+        queue ++;
+        
+        }
+        //if a car is detected in the middle and no previous car is detected, add 1 to carforward
+        if (carpos > 160 && carpos < 425 && carforward < 1)
+        {
+        carforward ++;
+        queue++;
+        }
+         if (carpos > 425 && carright < 1)
+        {
+        queue++;
+        carforward ++;
+        }
+    }
+}
+
+void countDown(vector<vector<Point> >& amountcars)
+{
+    for ( unsigned int i = 0; i < amountcars.size(); i++)
+    {
+    Rect rect = boundingRect(Mat(amountcars[i]));
+    double carposx = rect.x;
+    double carposy = rect.y;
+
+        if (carposx < 370 && carposx > 140 && carposy > 190 && carposy < 360)
+        {
+        queue --;
+        }
+    }
+}
+
 
 int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::sizeReading msg;
@@ -432,47 +509,68 @@ int32_t main(int32_t argc, char **argv) {
                 
                 // TODO: Do something with the frame.
                 //declaring hsv, hsv threshold frames.
-                cv::Mat frame_HSV;//, stop_HSV;
-                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold;//, stop_threshold;
+                cv::Mat frame_HSV;
+                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold, cars_threshold, sign_threshold;//, stop_threshold;
                 //different lists for squares (acc car), stopsign and signs for turning rules
                 vector<vector<Point> > squares;
                 vector<vector<Point> > stopSigns;
                 vector<vector<Point> > sign;
+                vector<vector<Point> > cars;
 
-                //crop image to reduce the amount of pixels to check for the algorithm.
-                //cv::Rect croptest(0, 0, 640, 370); 
-                //cv::Rect cropSign(450, 30, 620, 380);
-                //cv::Mat croppedImage = img(croptest);
-                //cv::Mat croppedStop = cropCopy(cropSign);
-
+               
                 //converts the image that we copied from shared memory to HSV and save it as an HSV image called frame_HSV
                 cvtColor(img, frame_HSV, COLOR_BGR2HSV);
                 
                 //sets the Hue/Saturation/Value for the different thresholds depending on if it's looking for car/stopsign/signs. (stop is red, car is blue and signs are green)
-                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold); // Stop sign (red)
-                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold); // Acc car (dark blue)
-                inRange(frame_HSV, Scalar(55, 92, 43), Scalar(88, 171, 100), sign1_threshold); //Green
-                inRange(frame_HSV, Scalar(88, 174, 86), Scalar(126, 235, 139), sign2_threshold); //Blue
-                inRange(frame_HSV, Scalar(5, 105, 101), Scalar(30, 210, 171), sign3_threshold); //Yellow
-               
+                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);   // Stop sign (red)
+                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold);  // Acc car (dark blue)
+                inRange(frame_HSV, Scalar(55, 92, 43), Scalar(88, 171, 100), sign1_threshold);   //Green
+                inRange(frame_HSV, Scalar(150, 120, 80), Scalar(170, 193, 153), sign2_threshold);//Blue
+                inRange(frame_HSV, Scalar(7, 104, 128), Scalar(38, 193, 206), sign3_threshold);//Yellow
+                
+                 inRange(frame_HSV, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), sign_threshold);//Yellow
+                    namedWindow(window_detection_name);
+                    createTrackbar("Low H", window_detection_name, &low_H, max_value_H, on_low_H_thresh_trackbar);
+                    createTrackbar("High H", window_detection_name, &high_H, max_value_H, on_high_H_thresh_trackbar);
+                    createTrackbar("Low S", window_detection_name, &low_S, max_value, on_low_S_thresh_trackbar);
+                    createTrackbar("High S", window_detection_name, &high_S, max_value, on_high_S_thresh_trackbar);
+                    createTrackbar("Low V", window_detection_name, &low_V, max_value, on_low_V_thresh_trackbar);
+                    createTrackbar("High V", window_detection_name, &high_V, max_value, on_high_V_thresh_trackbar);
+
                 //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
-                find_sign(sign1_threshold, sign, 1);
+                //find_sign(sign1_threshold, sign, 1);
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
-
-
+                find_sign(sign_threshold, sign, 1);
 
               
                 // Display image.
                 if (VERBOSE) {
+
+                   //draws a square around the countdown position
+                 /*  rectangle(img, Point(140,190), Point(370,360), Scalar(255,0,0), 2, 8, 0);
+                   rectangle(img, Point(0,0), Point(160,480), Scalar(0,0,255), 2, 8, 0);
+                   rectangle(img, Point(160,0), Point(425,480), Scalar(0,0,255), 2, 8, 0);
+                   rectangle(img, Point(425,0), Point(640,480), Scalar(0,0,255), 2, 8, 0);*/
                     //displays window where it will draw the objects and their boundry rectangles.
-                  /* 
+                  
                    cv::imshow("funspace", debugSquares(squares, img));
                    cv::imshow("funspace", debugStop(stopSigns, img));
                    cv::imshow("funspace", debugSign(sign, img));
-*/
+
+
+
+                    imshow(window_detection_name, sign_threshold);
+
+                    std::cout << "low H: " << low_H << std::endl;
+                    std::cout << "high H: " << high_H << std::endl;
+                    std::cout << "low S: " << low_S << std::endl;
+                    std::cout << "high S: " << high_S << std::endl;
+                    std::cout << "low V: " << low_V << std::endl;
+                    std::cout << "high V: " << high_V << std::endl;
+
                    //cv::imshow("thresholdSign", sign_threshold);
 
                    if(notRight == true || notLeft == true || notForward == true){
@@ -487,9 +585,14 @@ int32_t main(int32_t argc, char **argv) {
 
                    }
                   
-                                 
 
-                // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
+                    //counts amount of cars in intersection  
+                    if (countcars==true)
+                    {           
+                    carCount(cars);
+                    }
+
+                    // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
                    if (squares.size() > 0 && byStop == false)
                     {
                         float carSize = contourArea(squares[0]);
@@ -528,7 +631,7 @@ int32_t main(int32_t argc, char **argv) {
                          std::cout << "car long range,      pedal 0.15 " << std::endl;
                         }
 
-                        else
+                        else 
                         {
                          std::cout << "car very long range, pedal 0.20" << std::endl;
                         }
@@ -545,7 +648,14 @@ int32_t main(int32_t argc, char **argv) {
                         msg2.stop(stopseq);
 
                         od4.send(msg2);
+                        
                     }
+                    }
+
+                    else if (byStop == true && countcars == true)
+                    {
+                       countDown(cars);
+                      // delay(3s) //set this to 3 sec 
                     }
                     //if car infront is not detected, stop pedal.
                     else 
