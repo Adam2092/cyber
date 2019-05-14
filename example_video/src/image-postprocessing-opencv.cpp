@@ -169,10 +169,12 @@ Mat debugSquares( vector<vector<Point> > squares, Mat image )
 }
 
 //this method corrects the car's placement depending on the car in front (pos is the centre of the acc car)
-void correct_turn(vector<Point> squares)
+double correct_turn(vector<Point> squares)
 {
     Rect rect = boundingRect(Mat(squares));
     double pos = rect.x+(rect.width/2);
+    double offset = pos - 320;
+
     std::cout << "rect pos is: " << pos << std::endl;
    if( pos < 220)
     {
@@ -194,6 +196,7 @@ void correct_turn(vector<Point> squares)
     {
      std::cout << "no correction" << std::endl;   
     }
+    return offset;
 }
 
 
@@ -450,6 +453,8 @@ int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::sizeReading msg;
     opendlv::proxy::stopReading msg2;
     opendlv::proxy::signRec msg3;
+    opendlv::proxy::correctTurn msg4;
+
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     
@@ -550,9 +555,11 @@ int32_t main(int32_t argc, char **argv) {
                    rectangle(img, Point(160,0), Point(425,480), Scalar(0,0,255), 2, 8, 0);
                    rectangle(img, Point(425,0), Point(640,480), Scalar(0,0,255), 2, 8, 0);*/
                     //displays window where it will draw the objects and their boundry rectangles.
+                  
                    cv::imshow("funspace", debugSquares(squares, img));
                    cv::imshow("funspace", debugStop(stopSigns, img));
                    cv::imshow("funspace", debugSign(sign, img));
+
 
 
                     imshow(window_detection_name, sign_threshold);
@@ -563,6 +570,7 @@ int32_t main(int32_t argc, char **argv) {
                     std::cout << "high S: " << high_S << std::endl;
                     std::cout << "low V: " << low_V << std::endl;
                     std::cout << "high V: " << high_V << std::endl;
+
                    //cv::imshow("thresholdSign", sign_threshold);
 
                    if(notRight == true || notLeft == true || notForward == true){
@@ -596,7 +604,12 @@ int32_t main(int32_t argc, char **argv) {
                         std::cout << "found square " << std::endl;
                         std::cout << carSize << std::endl;
 
-                        correct_turn(squares[0]);
+                        double offset = correct_turn(squares[0]);
+
+
+                        msg4.offset(offset);
+
+                        od4.send(msg4);
 
                         if(carSize > 35000)
                         {
@@ -648,6 +661,11 @@ int32_t main(int32_t argc, char **argv) {
                     else 
                     {
                         std::cout <<"no square found, stop car " << std::endl;
+
+                        msg.stop("stop");
+
+                        od4.send(msg);
+
                     }
 
                     //clears any remaining squares just in case they would linger.
