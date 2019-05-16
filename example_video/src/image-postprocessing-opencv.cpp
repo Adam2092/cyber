@@ -132,7 +132,7 @@ void find_squares(Mat& image, vector<vector<Point> >& squares)
                     // area may be positive or negative - in accordance with the
                     // contour orientation
                     //checks for amount of vector points, if == 4 (square) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
-                    if (approx.size() == 4 &&
+                    if (approx.size() > 3 && approx.size() < 6 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
@@ -169,10 +169,12 @@ Mat debugSquares( vector<vector<Point> > squares, Mat image )
 }
 
 //this method corrects the car's placement depending on the car in front (pos is the centre of the acc car)
-void correct_turn(vector<Point> squares)
+double correct_turn(vector<Point> squares)
 {
     Rect rect = boundingRect(Mat(squares));
     double pos = rect.x+(rect.width/2);
+    double offset = pos - 320;
+
     std::cout << "rect pos is: " << pos << std::endl;
    if( pos < 220)
     {
@@ -194,6 +196,7 @@ void correct_turn(vector<Point> squares)
     {
      std::cout << "no correction" << std::endl;   
     }
+    return offset;
 }
 
 
@@ -349,7 +352,7 @@ void find_sign(Mat& image, vector<vector<Point> >& sign, int version )
                      //checks for amount of vector points, if  amount of vectors are between 2-->8 (Triangle) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
                     //                                                              The reason for 2-->8 instead of only 3 is because of the imperfection of the triangle making small vectors appear.
                     // triangle will not be as sharp as preffered, which makes the corners a bit round, hence why the big window of vectors are allowed.
-                    if (approx.size() > 2 && approx.size() < 6 &&
+                    if (approx.size() > 2 && approx.size() < 8 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
@@ -450,6 +453,8 @@ int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::sizeReading msg;
     opendlv::proxy::stopReading msg2;
     opendlv::proxy::signRec msg3;
+    opendlv::proxy::correctTurn msg4;
+
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     
@@ -518,10 +523,10 @@ int32_t main(int32_t argc, char **argv) {
                 
                 //sets the Hue/Saturation/Value for the different thresholds depending on if it's looking for car/stopsign/signs. (stop is red, car is blue and signs are green)
                 inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);   // Stop sign (red)
-                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold);  // Acc car (dark blue)
-                inRange(frame_HSV, Scalar(55, 92, 43), Scalar(88, 171, 100), sign1_threshold);   //Green
-                inRange(frame_HSV, Scalar(150, 120, 80), Scalar(170, 193, 153), sign2_threshold);//Blue
-                inRange(frame_HSV, Scalar(7, 104, 128), Scalar(38, 193, 206), sign3_threshold);//Yellow
+                inRange(frame_HSV, Scalar(103, 112, 39), Scalar(143, 243, 84), frame_threshold);  // Acc car (dark blue)
+                inRange(frame_HSV, Scalar(52, 97, 78), Scalar(88, 181, 125, sign1_threshold);   //Green
+                inRange(frame_HSV, Scalar(150, 120, 80), Scalar(170, 193, 153), sign2_threshold);//rosa
+                inRange(frame_HSV, Scalar(149, 110, 43), Scalar(179, 176, 100), sign3_threshold);//Yellow
                 
                  inRange(frame_HSV, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), sign_threshold);//Yellow
                     namedWindow(window_detection_name);
@@ -535,10 +540,10 @@ int32_t main(int32_t argc, char **argv) {
                 //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
-                //find_sign(sign1_threshold, sign, 1);
+                find_sign(sign1_threshold, sign, 1);
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
-                find_sign(sign_threshold, sign, 1);
+                find_sign(sign_threshold, sign, 2); //low 107 163 61 high 121 241 188
 
               
                 // Display image.
@@ -550,9 +555,11 @@ int32_t main(int32_t argc, char **argv) {
                    rectangle(img, Point(160,0), Point(425,480), Scalar(0,0,255), 2, 8, 0);
                    rectangle(img, Point(425,0), Point(640,480), Scalar(0,0,255), 2, 8, 0);*/
                     //displays window where it will draw the objects and their boundry rectangles.
+                  
                    cv::imshow("funspace", debugSquares(squares, img));
                    cv::imshow("funspace", debugStop(stopSigns, img));
                    cv::imshow("funspace", debugSign(sign, img));
+
 
 
                     imshow(window_detection_name, sign_threshold);
@@ -563,6 +570,9 @@ int32_t main(int32_t argc, char **argv) {
                     std::cout << "high S: " << high_S << std::endl;
                     std::cout << "low V: " << low_V << std::endl;
                     std::cout << "high V: " << high_V << std::endl;
+
+
+
                    //cv::imshow("thresholdSign", sign_threshold);
 
                    if(notRight == true || notLeft == true || notForward == true){
@@ -578,7 +588,7 @@ int32_t main(int32_t argc, char **argv) {
                    }
                   
 
-                    //counts amount of cars in intersection  
+                    //counts amount of cars in intersection  s
                     if (countcars==true)
                     {           
                     carCount(cars);
@@ -596,7 +606,12 @@ int32_t main(int32_t argc, char **argv) {
                         std::cout << "found square " << std::endl;
                         std::cout << carSize << std::endl;
 
-                        correct_turn(squares[0]);
+                        double offset = correct_turn(squares[0]);
+
+
+                        msg4.offset(offset);
+
+                        od4.send(msg4);
 
                         if(carSize > 35000)
                         {
@@ -648,6 +663,11 @@ int32_t main(int32_t argc, char **argv) {
                     else 
                     {
                         std::cout <<"no square found, stop car " << std::endl;
+
+                        msg.stop("stop");
+
+                        od4.send(msg);
+
                     }
 
                     //clears any remaining squares just in case they would linger.
