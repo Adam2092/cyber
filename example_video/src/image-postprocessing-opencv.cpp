@@ -572,7 +572,6 @@ int32_t main(int32_t argc, char **argv) {
                     std::cout << "high V: " << high_V << std::endl;
 
 
-
                    //cv::imshow("thresholdSign", sign_threshold);
 
                    if(notRight == true || notLeft == true || notForward == true){
