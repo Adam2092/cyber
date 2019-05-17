@@ -56,7 +56,6 @@ double angle( Point pt1, Point pt2, Point pt0 ) {
 }
 
 
-
 void find_squares(Mat& image, vector<vector<Point> >& squares)
 {
     // blur will enhance edge detection
@@ -103,6 +102,7 @@ void find_squares(Mat& image, vector<vector<Point> >& squares)
                     // area may be positive or negative - in accordance with the
                     // contour orientation
                     //checks for amount of vector points, if == 4 (square) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
+
                     if (approx.size() > 3 && approx.size() < 6 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
@@ -425,6 +425,8 @@ int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::stopReading msg2;
     opendlv::proxy::signRec msg3;
     opendlv::proxy::correctTurn msg4;
+    opendlv::proxy::stopRequest msg5;
+
 
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
@@ -500,19 +502,19 @@ int32_t main(int32_t argc, char **argv) {
                 inRange(frame_HSV, Scalar(114, 111, 102), Scalar(134, 183, 169), sign3_threshold);//Yellow
                 
                 
+
+
                 //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
                 find_sign(sign1_threshold, sign, 1);
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
-                
 
               
                 // Display image.
                 if (VERBOSE) {
 
-                                 
 
                    if(notRight == true || notLeft == true || notForward == true){
 
@@ -600,9 +602,9 @@ int32_t main(int32_t argc, char **argv) {
                     {
                         std::cout <<"no square found, stop car " << std::endl;
 
-                        msg.stop("stop");
+                        msg5.stopping("stop");
 
-                        od4.send(msg);
+                        od4.send(msg5);
 
                     }
 
