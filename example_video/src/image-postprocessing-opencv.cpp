@@ -31,7 +31,7 @@ using namespace cv;
 using namespace std;
 
 
-const String window_detection_name = "sliders";
+
 const int max_value_H = 180;
 const int max_value = 255;
 int carleft = 0;
@@ -54,38 +54,7 @@ double angle( Point pt1, Point pt2, Point pt0 ) {
     double dy2 = pt2.y - pt0.y;
     return (dx1*dx2 + dy1*dy2)/sqrt((dx1*dx1 + dy1*dy1)*(dx2*dx2 + dy2*dy2) + 1e-10);
 }
-/*
-static void on_low_H_thresh_trackbar(int, void *)
-{
-    low_H = min(high_H-1, low_H);
-    setTrackbarPos("Low H", window_detection_name, low_H);
-}
-static void on_high_H_thresh_trackbar(int, void *)
-{
-    high_H = max(high_H, low_H+1);
-    setTrackbarPos("High H", window_detection_name, high_H);
-}
-static void on_low_S_thresh_trackbar(int, void *)
-{
-    low_S = min(high_S-1, low_S);
-      setTrackbarPos("Low S", window_detection_name, low_S);
-}
-static void on_high_S_thresh_trackbar(int, void *)
-{
-    high_S = max(high_S, low_S+1);
-    setTrackbarPos("High S", window_detection_name, high_S);
-}
-static void on_low_V_thresh_trackbar(int, void *)
-{
-    low_V = min(high_V-1, low_V);
-    setTrackbarPos("Low V", window_detection_name, low_V);
-}
-static void on_high_V_thresh_trackbar(int, void *)
-{
-    high_V = max(high_V, low_V+1);
-    setTrackbarPos("High V", window_detection_name, high_V);
-}
-*/
+
 
 void find_squares(Mat& image, vector<vector<Point> >& squares)
 {
@@ -133,7 +102,8 @@ void find_squares(Mat& image, vector<vector<Point> >& squares)
                     // area may be positive or negative - in accordance with the
                     // contour orientation
                     //checks for amount of vector points, if == 4 (square) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
-                    if (approx.size() > 3 && approx.size() < 6 && 
+
+                    if (approx.size() > 3 && approx.size() < 6 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
@@ -353,7 +323,7 @@ void find_sign(Mat& image, vector<vector<Point> >& sign, int version )
                      //checks for amount of vector points, if  amount of vectors are between 2-->8 (Triangle) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
                     //                                                              The reason for 2-->8 instead of only 3 is because of the imperfection of the triangle making small vectors appear.
                     // triangle will not be as sharp as preffered, which makes the corners a bit round, hence why the big window of vectors are allowed.
-                    if (approx.size() > 2 && approx.size() < 6 &&
+                    if (approx.size() > 2 && approx.size() < 8 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
@@ -513,7 +483,7 @@ int32_t main(int32_t argc, char **argv) {
                 // TODO: Do something with the frame.
                 //declaring hsv, hsv threshold frames.
                 cv::Mat frame_HSV;
-                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold, cars_threshold, sign_threshold;//, stop_threshold;
+                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold, cars_threshold;//, stop_threshold;
                 //different lists for squares (acc car), stopsign and signs for turning rules
                 vector<vector<Point> > squares;
                 vector<vector<Point> > stopSigns;
@@ -526,56 +496,25 @@ int32_t main(int32_t argc, char **argv) {
                 
                 //sets the Hue/Saturation/Value for the different thresholds depending on if it's looking for car/stopsign/signs. (stop is red, car is blue and signs are green)
                 inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);   // Stop sign (red)
-                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold);  // Acc car (dark blue)
-                inRange(frame_HSV, Scalar(55, 92, 43), Scalar(88, 171, 100), sign1_threshold);   //Green
-                inRange(frame_HSV, Scalar(150, 120, 80), Scalar(170, 193, 153), sign2_threshold);//Blue
-                inRange(frame_HSV, Scalar(7, 104, 128), Scalar(38, 193, 206), sign3_threshold);//Yellow
+                inRange(frame_HSV, Scalar(68, 148, 80), Scalar(116, 208, 126), frame_threshold);  // Acc car (dark blue)
+                inRange(frame_HSV, Scalar(52, 97, 78), Scalar(88, 181, 125), sign1_threshold);   //Green
+                inRange(frame_HSV, Scalar(154, 135, 113), Scalar(180, 224, 176), sign2_threshold);//rosa
+                inRange(frame_HSV, Scalar(114, 111, 102), Scalar(134, 183, 169), sign3_threshold);//Yellow
                 
-                /* inRange(frame_HSV, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), sign_threshold);//Yellow
-                    namedWindow(window_detection_name);
-                    createTrackbar("Low H", window_detection_name, &low_H, max_value_H, on_low_H_thresh_trackbar);
-                    createTrackbar("High H", window_detection_name, &high_H, max_value_H, on_high_H_thresh_trackbar);
-                    createTrackbar("Low S", window_detection_name, &low_S, max_value, on_low_S_thresh_trackbar);
-                    createTrackbar("High S", window_detection_name, &high_S, max_value, on_high_S_thresh_trackbar);
-                    createTrackbar("Low V", window_detection_name, &low_V, max_value, on_low_V_thresh_trackbar);
-                    createTrackbar("High V", window_detection_name, &high_V, max_value, on_high_V_thresh_trackbar);
-*/
+                
+
+
                 //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
                 find_sign(sign1_threshold, sign, 1);
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
-                //find_squares(sign_threshold, squares);
-
 
               
                 // Display image.
                 if (VERBOSE) {
 
-                   //draws a square around the countdown position
-                 /*  rectangle(img, Point(140,190), Point(370,360), Scalar(255,0,0), 2, 8, 0);
-                   rectangle(img, Point(0,0), Point(160,480), Scalar(0,0,255), 2, 8, 0);
-                   rectangle(img, Point(160,0), Point(425,480), Scalar(0,0,255), 2, 8, 0);
-                   rectangle(img, Point(425,0), Point(640,480), Scalar(0,0,255), 2, 8, 0);*/
-                    //displays window where it will draw the objects and their boundry rectangles.
-                 /* 
-                   cv::imshow("funspace", debugSquares(squares, img));
-                   cv::imshow("funspace", debugStop(stopSigns, img));
-                   cv::imshow("funspace", debugSign(sign, img));
-
-
-
-                    imshow(window_detection_name, sign_threshold);
-
-                    std::cout << "low H: " << low_H << std::endl;
-                    std::cout << "high H: " << high_H << std::endl;
-                    std::cout << "low S: " << low_S << std::endl;
-                    std::cout << "high S: " << high_S << std::endl;
-                    std::cout << "low V: " << low_V << std::endl;
-                    std::cout << "high V: " << high_V << std::endl;
-*/
-                   //cv::imshow("thresholdSign", sign_threshold);
 
                    if(notRight == true || notLeft == true || notForward == true){
 
@@ -590,7 +529,7 @@ int32_t main(int32_t argc, char **argv) {
                    }
                   
 
-                    //counts amount of cars in intersection  
+                    //counts amount of cars in intersection  s
                     if (countcars==true)
                     {           
                     carCount(cars);
@@ -645,15 +584,12 @@ int32_t main(int32_t argc, char **argv) {
                     //if byStop is true (we are by the stopsign), we stop following the car in front of us.
                      else if (byStop == true)
                     {
-                     float leavingCar = contourArea(squares[0]);
                      bool stopseq = false;
-                     if (leavingCar > 10000)
-                     {
                         msg2.stop(stopseq);
 
                         od4.send(msg2);
                         
-                    }
+                    
                     }
 
                     else if (byStop == true && countcars == true)
