@@ -54,7 +54,7 @@ double angle( Point pt1, Point pt2, Point pt0 ) {
     double dy2 = pt2.y - pt0.y;
     return (dx1*dx2 + dy1*dy2)/sqrt((dx1*dx1 + dy1*dy1)*(dx2*dx2 + dy2*dy2) + 1e-10);
 }
-
+/*
 static void on_low_H_thresh_trackbar(int, void *)
 {
     low_H = min(high_H-1, low_H);
@@ -85,6 +85,7 @@ static void on_high_V_thresh_trackbar(int, void *)
     high_V = max(high_V, low_V+1);
     setTrackbarPos("High V", window_detection_name, high_V);
 }
+*/
 
 void find_squares(Mat& image, vector<vector<Point> >& squares)
 {
@@ -132,7 +133,7 @@ void find_squares(Mat& image, vector<vector<Point> >& squares)
                     // area may be positive or negative - in accordance with the
                     // contour orientation
                     //checks for amount of vector points, if == 4 (square) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
-                    if (approx.size() == 4 &&
+                    if (approx.size() > 3 && approx.size() < 6 && 
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
@@ -454,6 +455,8 @@ int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::stopReading msg2;
     opendlv::proxy::signRec msg3;
     opendlv::proxy::correctTurn msg4;
+    opendlv::proxy::stopRequest msg5;
+
 
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
@@ -528,7 +531,7 @@ int32_t main(int32_t argc, char **argv) {
                 inRange(frame_HSV, Scalar(150, 120, 80), Scalar(170, 193, 153), sign2_threshold);//Blue
                 inRange(frame_HSV, Scalar(7, 104, 128), Scalar(38, 193, 206), sign3_threshold);//Yellow
                 
-                 inRange(frame_HSV, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), sign_threshold);//Yellow
+                /* inRange(frame_HSV, Scalar(low_H, low_S, low_V), Scalar(high_H, high_S, high_V), sign_threshold);//Yellow
                     namedWindow(window_detection_name);
                     createTrackbar("Low H", window_detection_name, &low_H, max_value_H, on_low_H_thresh_trackbar);
                     createTrackbar("High H", window_detection_name, &high_H, max_value_H, on_high_H_thresh_trackbar);
@@ -536,14 +539,15 @@ int32_t main(int32_t argc, char **argv) {
                     createTrackbar("High S", window_detection_name, &high_S, max_value, on_high_S_thresh_trackbar);
                     createTrackbar("Low V", window_detection_name, &low_V, max_value, on_low_V_thresh_trackbar);
                     createTrackbar("High V", window_detection_name, &high_V, max_value, on_high_V_thresh_trackbar);
-
+*/
                 //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
-                //find_sign(sign1_threshold, sign, 1);
+                find_sign(sign1_threshold, sign, 1);
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
-                find_sign(sign_threshold, sign, 1);
+                //find_squares(sign_threshold, squares);
+
 
               
                 // Display image.
@@ -555,7 +559,7 @@ int32_t main(int32_t argc, char **argv) {
                    rectangle(img, Point(160,0), Point(425,480), Scalar(0,0,255), 2, 8, 0);
                    rectangle(img, Point(425,0), Point(640,480), Scalar(0,0,255), 2, 8, 0);*/
                     //displays window where it will draw the objects and their boundry rectangles.
-                  
+                 /* 
                    cv::imshow("funspace", debugSquares(squares, img));
                    cv::imshow("funspace", debugStop(stopSigns, img));
                    cv::imshow("funspace", debugSign(sign, img));
@@ -570,7 +574,7 @@ int32_t main(int32_t argc, char **argv) {
                     std::cout << "high S: " << high_S << std::endl;
                     std::cout << "low V: " << low_V << std::endl;
                     std::cout << "high V: " << high_V << std::endl;
-
+*/
                    //cv::imshow("thresholdSign", sign_threshold);
 
                    if(notRight == true || notLeft == true || notForward == true){
@@ -662,9 +666,9 @@ int32_t main(int32_t argc, char **argv) {
                     {
                         std::cout <<"no square found, stop car " << std::endl;
 
-                        msg.stop("stop");
+                        msg5.stopping("stop");
 
-                        od4.send(msg);
+                        od4.send(msg5);
 
                     }
 
