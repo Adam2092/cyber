@@ -620,6 +620,99 @@ int32_t main(int32_t argc, char **argv) {
 
 //----------____________----_____---__------______---_----____----_--__---______---__------__---_----------_----------------__---_-------_
 
+
+       float tempDistReading{0.0};
+       float frontDistance{0.0};
+       float sideDistance{0.0};
+       
+        auto onDistanceReading{[VERBOSE, &tempDistReading, &frontDistance, &sideDistance](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+                auto msg = cluon::extractMessage<opendlv::proxy::DistanceReading>(std::move(envelope));
+                const uint16_t senderStamp = envelope.senderStamp(); // Local variables are not available outside the lambda function
+                tempDistReading = msg.distance(); // Corresponds to odvd message set
+
+                
+
+                    if (VERBOSE){
+
+                    }
+
+
+                    if(senderStamp == 0){
+
+                        frontDistance = tempDistReading;
+
+                    }else if(senderStamp == 1){
+
+                        sideDistance = tempDistReading;
+
+                    }
+
+                
+                
+            }
+        };
+
+        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), onDistanceReading);
+
+//------------_____________----_----_--__________------_____---_________-----_________________-----__---__----_----____----_-------__------------_--
+
+       
+
+       //carCounter is just a placeholder for the real queCounter from counting cars.
+       int carCounter = 3;
+       int carCheck = 0;
+       bool tempTrigger = false;
+        auto carQueue{[VERBOSE, &frontDistance, &sideDistance, &carCounter, &carCheck, &tempTrigger](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+                auto msg7 = cluon::extractMessage<opendlv::proxy::stopDone>(std::move(envelope));
+                
+            
+                     tempTrigger = msg7.done();  
+
+                    if (VERBOSE){
+
+                    if(frontDistance > 0.05 && frontDistance < 0.25){
+
+                        carCheck += 1;
+
+                    }else if(sideDistance > 0.05 && sideDistance < 0.15){
+
+                        carCheck += 1;
+
+                    }else{
+
+                        carCheck = 0;
+
+                    }
+
+                    if(carCheck == 3){
+
+                        carCounter -= 1;
+
+                        carCheck = 0;
+                    }
+
+                    
+
+                    if(carCounter == 0){
+
+                        std::cout << "time to vroomvrooom" << std::endl;
+
+                    }
+
+                }
+                
+            }
+        };
+
+        od4.dataTrigger(opendlv::proxy::stopDone::ID(), carQueue);
+
+
+//-------_____________---___---_----___-----____-----_----_----_--___---__---___---___--___---__---_---------------_--_________-----_-------__----_-                    
+
         
 
         auto stopDone{[VERBOSE, &byStop](cluon::data::Envelope &&envelope)
