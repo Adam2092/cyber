@@ -29,17 +29,71 @@
 using namespace std;
 using namespace cv;
 CascadeClassifier cascade;
+
+static int carLeft = 0;
+static int carForward = 0;
+static int carRight = 0;
+static int queue = 0;
+bool countUp = true;
+bool carDetected = false;
+bool carReady = true;
+
 void detectAndDisplay( Mat frame )
 {
+    std::vector<Rect> cars;
     Mat frame_gray;
     cvtColor( frame, frame_gray, COLOR_BGR2GRAY );
     equalizeHist( frame_gray, frame_gray );
     //-- Detect faces
-    std::vector<Rect> cars;
-    cascade.detectMultiScale( frame_gray, cars, 1.1, 4);
+    cascade.detectMultiScale( frame_gray, cars, 1.1, 4, 0, Size(100,100));
+    if(cars.size() != 0){
     for (vector<Rect>::const_iterator r = cars.begin(); r != cars.end(); r++)
+    {
+    Rect rect = *r;
 	rectangle(frame, *r, Scalar(0,0,255), 2, 8,0);
+    double carpos = rect.x;
+
+    //if a car is detected to the left and no previous car is detected, add 1 to carLeft
+        if (carpos < 100 && carLeft < 1 && carForward < 1)
+        {
+        carLeft ++;
+        }
+        //if a car is detected in the middle and no previous car is detected, add 1 to carForward
+        if (carpos > 100 && carpos < 320 && carForward < 1)
+        {
+        carForward ++;
+        }
+         if (carpos > 320 && carRight < 1)
+        {
+        carRight ++;
+        }
+    }
+    queue = carLeft + carForward + carRight;
 }
+}
+
+void detectAndCountdown( Mat frame ){
+
+  std::vector<Rect> cars;
+  Mat frame_gray;
+  cvtColor( frame, frame_gray, COLOR_BGR2GRAY );
+  equalizeHist( frame_gray, frame_gray );
+  //-- Detect faces
+  cascade.detectMultiScale( frame_gray, cars, 1.1, 4, 0, Size(100,100));
+  if(cars.size() != 0){
+  for (vector<Rect>::const_iterator r = cars.begin(); r != cars.end(); r++)
+  {
+  Rect rect = *r;
+  rectangle(frame, *r, Scalar(0,0,255), 2, 8,0);
+  double carpos = rect.br().x;
+  if(carpos > 500)
+  {
+    carDetected = true;
+  }
+}
+}
+}
+
 
 int32_t main(int32_t argc, char **argv) {
     int32_t retCode{1};
@@ -69,8 +123,86 @@ int32_t main(int32_t argc, char **argv) {
 
             // Interface to a running OpenDaVINCI session; here, you can send and receive messages.
             cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
-
             // Endless loop; end the program by pressing Ctrl-C.
+
+        
+
+
+//-------____----_--_----__-__----_-___---_____------__---___--______-----_--____-
+
+        
+
+        float frontDistance{0.0};
+        float sideDistance{0.0};
+
+
+
+        auto carQueue{[&od4, VERBOSE, &frontDistance, &sideDistance, &queue, &carDetected, &carReady](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+
+
+                auto msg = cluon::extractMessage<opendlv::proxy::startDistance>(std::move(envelope));
+                
+                 // Corresponds to odvd message set
+
+                frontDistance = msg.frontDistance();
+                sideDistance = msg.sideDistance();
+                
+                opendlv::proxy::goTime msg1;
+
+
+
+                std::cout << "prints if we are in the coutn down function" << std::endl;
+                     const int16_t delay{500};
+                    if(frontDistance > 0.1 && frontDistance < 1){
+
+                        std::cout << "prints if we are in the frontDistance and the distance is: (" << frontDistance << ")" << std::endl;
+
+                        queue -= 1;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10 * delay));
+                    }
+
+                    if(sideDistance > 0.1 && sideDistance < 1){
+
+                        std::cout << "prints if we are in the sideDistance and the distance is : (" << sideDistance << ")" << std::endl;
+
+                        queue -= 1;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10 * delay));
+
+                    }
+
+                    else if (carDetected)
+                    queue--;
+                    carDetected = false;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
+
+                    if(queue <= 0 && countUp == false){
+
+
+                        msg1.ready(carReady);
+
+                        od4.send(msg1);
+                    }
+
+
+                }
+            };
+
+        od4.dataTrigger(opendlv::proxy::startDistance::ID(), carQueue);
+
+//----______--------_----____--____----_---_--------___---__---_-------__-------_----_-------_--__---__-------_-------_-------
+
+
+        auto reachedStop{[&od4, &countUp](cluon::data::Envelope &&envelope)
+          {
+            auto msg = cluon::extractMessage<opendlv::proxy::stopDone>(std::move(envelope));
+            countUp = msg.done();
+          }
+
+        };
+        od4.dataTrigger(opendlv::proxy::stopDone::ID(), reachedStop);
+
             while (od4.isRunning()) {
                 cv::Mat frame;
 
@@ -88,20 +220,33 @@ int32_t main(int32_t argc, char **argv) {
                     cv::Mat wrapped(HEIGHT, WIDTH, CV_8UC4, sharedMemory->data());
                     frame = wrapped.clone();
                 }
-    		String cascade_name = "car-28.xml";
-   		if( !cascade.load( cascade_name ) )
-   		{
-      		  cout << "--(!)Error loading cascade\n";
-     		   return -1;
-    		};
-                sharedMemory->unlock();
-		
-        	detectAndDisplay( frame );
+  sharedMemory->unlock();
 
+                String cascade_name = "car-28.xml";
+           		if( !cascade.load( cascade_name ) )
+           		{
+              		  cout << "--(!)Error loading cascade\n";
+             		   return -1;
+            		};
+
+		    if(countUp)
+        	detectAndDisplay( frame );
+            else{
+            detectAndCountdown( frame );
+
+            }
+          
                 // Display image.
                 if (VERBOSE) {
-                    cv::imshow(sharedMemory->name().c_str(), frame);
+                    //cv::imshow(sharedMemory->name().c_str(), frame);
+
+                    std::cout << "carLeft: " << carLeft << std::endl;
+                    std::cout << "carForward: " << carForward << std::endl;
+                    std::cout << "carRight: " << carRight << std::endl;
+                    std::cout << "queue: " << queue << std::endl;
+                    std::cout << "countup is: " << countUp << std::endl;
                     cv::waitKey(1);
+
                 }
             }
         }
@@ -109,5 +254,3 @@ int32_t main(int32_t argc, char **argv) {
     }
     return retCode;
 }
-
-

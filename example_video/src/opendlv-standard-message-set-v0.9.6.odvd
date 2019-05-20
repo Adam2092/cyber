@@ -395,3 +395,7 @@ message opendlv.proxy.stopDone [id = 3005] {
   bool done [id = 1];
 }
 
+message opendlv.proxy.startDistance [id = 3006] {
+  float frontDistance [id = 1];
+  float sideDistance [id = 2];
+}

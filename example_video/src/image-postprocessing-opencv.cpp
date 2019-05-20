@@ -34,26 +34,25 @@ using namespace std;
 
 const int max_value_H = 180;
 const int max_value = 255;
-int carleft = 0;
-int carright = 0;
-int carforward = 0;
-int queue = 0;
+
 
 float stopSize{0.0};
 
 int low_H = 0, low_S = 0, low_V = 0;
 int high_H = 179, high_S = 255, high_V = 255;
 
+
 bool stop = false;
 
 //int counter = 0;
+
 int stopCounter = 0;
 
 bool byStop = false;
 bool notRight = false;
 bool notLeft = false;
 bool notForward = false;
-bool countcars = true;
+
 
 double angle( Point pt1, Point pt2, Point pt0 ) {
     double dx1 = pt1.x - pt0.x;
@@ -255,7 +254,9 @@ void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
                     }
 
                 //if stopsign is between the area 14000 and 155000, it means we are close enough to begin the stop sequence.
+
          if (stopSigns.size() > 0 && contourArea(stopSigns[0]) >3000)
+
          {
             //sets bystop boolean to true
            std::cout << "close to stop sign, start hardcoded sequence" << std::endl;
@@ -359,6 +360,7 @@ void find_sign(Mat& image, vector<vector<Point> >& sign, int version )
                                 if(version == 1){
                                 notRight = true;
                                 std::cout << "sign 1: grön " << std::endl;
+                                std::cout << "bool for green is : " << notRight << std::endl;
                                 }
                                 if(version == 2){
                                 notLeft = true; 
@@ -395,48 +397,6 @@ Mat debugSign(vector<vector<Point> > sign, Mat image )
 }
 
 
-void carCount(vector<vector<Point> >& amountcars)
-{
-    for ( unsigned int i = 0; i < amountcars.size(); i++)
-    {
-    Rect rect = boundingRect(Mat(amountcars[i]));
-    double carpos = rect.x;
-    //if a car is detected to the left and no previous car is detected, add 1 to carleft
-        if (carpos < 160 && carleft < 1)
-        {
-        carleft ++;
-        queue ++;
-        
-        }
-        //if a car is detected in the middle and no previous car is detected, add 1 to carforward
-        if (carpos > 160 && carpos < 425 && carforward < 1)
-        {
-        carforward ++;
-        queue++;
-        }
-         if (carpos > 425 && carright < 1)
-        {
-        queue++;
-        carforward ++;
-        }
-    }
-}
-
-void countDown(vector<vector<Point> >& amountcars)
-{
-    for ( unsigned int i = 0; i < amountcars.size(); i++)
-    {
-    Rect rect = boundingRect(Mat(amountcars[i]));
-    double carposx = rect.x;
-    double carposy = rect.y;
-
-        if (carposx < 370 && carposx > 140 && carposy > 190 && carposy < 360)
-        {
-        queue --;
-        }
-    }
-}
-
 
 int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::sizeReading msg;
@@ -444,6 +404,13 @@ int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::signRec msg3;
     opendlv::proxy::correctTurn msg4;
     opendlv::proxy::stopRequest msg5;
+    opendlv::proxy::startDistance msg6;
+
+        float tempDistReading{0.0};
+
+       float frontDistance{0.0};
+
+       float sideDistance{0.0};
 
 
     int32_t retCode{1};
@@ -472,6 +439,53 @@ int32_t main(int32_t argc, char **argv) {
 
 
 
+            cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
+
+
+//-------________-----_--__----_----____----___-----_-----____----______-----_--___--__----__---__----__---_-----
+
+        auto onDistanceReading{[VERBOSE, &tempDistReading, &frontDistance, &sideDistance](cluon::data::Envelope &&envelope)
+
+            // &<variables> will be captured by reference (instead of value only)
+
+            {
+
+                auto msg = cluon::extractMessage<opendlv::proxy::DistanceReading>(std::move(envelope));
+
+                const uint16_t senderStamp = envelope.senderStamp(); // Local variables are not available outside the lambda function
+
+                tempDistReading = msg.distance(); // Corresponds to odvd message set
+
+
+
+                    if (VERBOSE){
+
+                        //std::cout << "prints if we are in the find distance" << std::endl;
+
+
+                    }
+
+                    if(senderStamp == 0){
+
+                        frontDistance = tempDistReading;
+
+                    }else if(senderStamp == 1){
+
+                        sideDistance = tempDistReading;
+
+                    }
+
+
+
+
+
+            }
+
+        };
+
+        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), onDistanceReading);
+
+//-------___________---__-----------_____----__________---_-------__----_---_--__------__---------------_-------_--------
 
 
         // Attach to the shared memory.
@@ -480,7 +494,6 @@ int32_t main(int32_t argc, char **argv) {
             std::clog << argv[0] << ": Attached to shared memory '" << sharedMemory->name() << " (" << sharedMemory->size() << " bytes)." << std::endl;
 
             // Interface to a running OpenDaVINCI session; here, you can send and receive messages.
-            cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
 
             // Endless loop; end the program by pressing Ctrl-C.
             while (od4.isRunning()) {
@@ -535,12 +548,13 @@ int32_t main(int32_t argc, char **argv) {
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
 
+                
               
                 // Display image.
                 if (VERBOSE) {
 
 
-                   if(notRight == true || notLeft == true || notForward == true){
+                    if(notRight == true || notForward == true || notLeft == true){                    
 
                         msg3.rightSign(notRight);
 
@@ -548,16 +562,18 @@ int32_t main(int32_t argc, char **argv) {
 
                         msg3.straightSign(notForward);
 
-                        od4.send(msg);
+                        od4.send(msg3);
+
+                        std::cout << "bool for green is : " << notRight << std::endl;
+
+
+                        std::cout << "sending sign stuff" << std::endl;
 
                    }
                   
 
                     //counts amount of cars in intersection  s
-                    if (countcars==true)
-                    {           
-                    carCount(cars);
-                    }
+                 
 
                     // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
                    if (squares.size() > 0 && byStop == false && stop == false)
@@ -586,7 +602,7 @@ int32_t main(int32_t argc, char **argv) {
 
                      std::cout << "sending stopsign bajs" << std::endl;
 
-                     
+
 
                         msg2.stop(stopseq);
 
@@ -594,10 +610,25 @@ int32_t main(int32_t argc, char **argv) {
 
                         od4.send(msg2);
                         
+
                         //counter += 1;
+                    }else if (stop == true){
+
+                        
+
+                        
+                        std::cout << "sending to object" << std::endl;
+
+
+
+                        msg6.frontDistance(frontDistance);
+                        msg6.sideDistance(sideDistance);
+                        od4.send(msg6);
+
                     }
 
                    
+
                     //if car infront is not detected, stop pedal.
                     else if(stopCounter < 3)
                     {
@@ -620,6 +651,103 @@ int32_t main(int32_t argc, char **argv) {
 
 //----------____________----_____---__------______---_----____----_--__---______---__------__---_----------_----------------__---_-------_
 
+
+ 
+
+
+/*
+       float tempDistReading{0.0};
+       float frontDistance{0.0};
+       float sideDistance{0.0};
+       
+        auto onDistanceReading{[VERBOSE, &tempDistReading, &frontDistance, &sideDistance](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+                auto msg = cluon::extractMessage<opendlv::proxy::DistanceReading>(std::move(envelope));
+                const uint16_t senderStamp = envelope.senderStamp(); // Local variables are not available outside the lambda function
+                tempDistReading = msg.distance(); // Corresponds to odvd message set
+
+                
+
+                    if (VERBOSE){
+
+                    }
+
+
+                    if(senderStamp == 0){
+
+                        frontDistance = tempDistReading;
+
+                    }else if(senderStamp == 1){
+
+                        sideDistance = tempDistReading;
+
+                    }
+
+                
+                
+            }
+        };
+
+        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), onDistanceReading);
+
+//------------_____________----_----_--__________------_____---_________-----_________________-----__---__----_----____----_-------__------------_--
+
+       
+
+       //carCounter is just a placeholder for the real queCounter from counting cars.
+       int carCounter = 3;
+       int carCheck = 0;
+       bool tempTrigger = false;
+        auto carQueue{[VERBOSE, &frontDistance, &sideDistance, &carCounter, &carCheck, &tempTrigger](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+                auto msg7 = cluon::extractMessage<opendlv::proxy::stopDone>(std::move(envelope));
+                
+            
+                     tempTrigger = msg7.done();  
+
+                    if (VERBOSE){
+
+                    if(frontDistance > 0.05 && frontDistance < 0.25){
+
+                        carCheck += 1;
+
+                    }else if(sideDistance > 0.05 && sideDistance < 0.15){
+
+                        carCheck += 1;
+
+                    }else{
+
+                        carCheck = 0;
+
+                    }
+
+                    if(carCheck == 3){
+
+                        carCounter -= 1;
+
+                        carCheck = 0;
+                    }
+
+                    
+
+                    if(carCounter == 0){
+
+                        std::cout << "time to vroomvrooom" << std::endl;
+
+                    }
+
+                }
+                
+            }
+        };
+
+        od4.dataTrigger(opendlv::proxy::stopDone::ID(), carQueue);
+ */
+
+//-------_____________---___---_----___-----____-----_----_----_--___---__---___---___--___---__---_---------------_--_________-----_-------__----_-                    
+
         
 
         auto stopDone{[VERBOSE, &byStop](cluon::data::Envelope &&envelope)
@@ -640,11 +768,19 @@ int32_t main(int32_t argc, char **argv) {
         };
         od4.dataTrigger(opendlv::proxy::stopDone::ID(), stopDone);
 
+//-------________-----_--__------_--------__---__----_-------_----_-----------------
+
+
 //-------_____---__---__----_-___---___--__----____________----___--__----__---_______----__----__---_-----_---------_____----__--------__---        
 
                 }
             }
         }
+
+
+
+
+
 
 //----------____________----_----______---_____-----___---________---__---__---__----____----_-------_----_-------_----_--__-
 

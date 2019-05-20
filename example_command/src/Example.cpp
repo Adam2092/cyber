@@ -57,6 +57,7 @@ int32_t main(int32_t argc, char **argv) {
         bool turnLeftNo = false;
         bool turnRightNo = false; 
         bool goStraightNo = false;
+        bool carReady = false;
         
 //-------_________-------__----_----_____---______--__----_----___-----__----__---_--------___-----__---------___----------_----_--__--
 
@@ -83,6 +84,34 @@ int32_t main(int32_t argc, char **argv) {
         };
 
                     od4.dataTrigger(opendlv::proxy::signRec::ID(), commandHandler);  
+
+//----_____________----__________---____--_----__---------_____----____________----__---______--______---__---_----_--_-----
+
+
+        auto ourTurn{[&od4, VERBOSE, &carReady](cluon::data::Envelope &&envelope)
+
+            {
+
+                std::cout << "it is now our turn to go " << std::endl;
+
+
+            
+            //declear msg to sabe whats recieved from custom message
+            auto msg = cluon::extractMessage<opendlv::proxy::goTime>(std::move(envelope));
+
+
+            //save content from message into tempSize
+            carReady = msg.ready(); // Corresponds to odvd message set
+          
+
+
+            }
+
+        };
+
+                    od4.dataTrigger(opendlv::proxy::goTime::ID(), ourTurn);  
+
+
 
 //-------_________----------_____---__----_----____----______--____________-----_-___---_----________---------_____---___--__----_-
 
@@ -116,7 +145,11 @@ int32_t main(int32_t argc, char **argv) {
 
             std::cin >> input;
 
-            if(input == 1 && turnLeftNo == false){
+            if(carReady == false){
+
+                std::cout << "wait for your turn" << std::endl;
+
+            }else if(input == 1 && turnLeftNo == false){
                 msg.turn(turn);
 
                 msg.direction("left");
