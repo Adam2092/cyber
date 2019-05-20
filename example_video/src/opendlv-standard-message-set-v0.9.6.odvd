@@ -386,4 +386,8 @@ message opendlv.proxy.correctTurn [id = 3004]{
   double offset [id = 1];
 }
 
+message opendlv.proxy.stopRequest [id = 2998] {
+ string stopping [id = 2];
+}
+
 
