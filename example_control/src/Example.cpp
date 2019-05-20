@@ -284,7 +284,7 @@ int32_t main(int32_t argc, char **argv) {
 
                     }
 
-                    if(frontDistance > 0.2 && frontDistance < 1){
+                    if(frontDistance > 0.1 && frontDistance < 1){
 
                         std::cout << "reacted on square, size is: (" << frontDistance << ") " << std::endl;
 
@@ -353,8 +353,7 @@ int32_t main(int32_t argc, char **argv) {
                     }
 
 
-                    msg3.done(done);
-                    od4Command.send(msg3);
+                    
 
 
                     pedalReq.position(0.0);
@@ -372,13 +371,19 @@ int32_t main(int32_t argc, char **argv) {
                         pedalReq.position(0.125);
                         od4Drive.send(pedalReq);
 
-                        std::this_thread::sleep_for(std::chrono::milliseconds(5 * delay));
+                        std::this_thread::sleep_for(std::chrono::milliseconds(3 * delay));
 
                         pedalReq.position(0.0);
                         od4Drive.send(pedalReq);
 
                         steerReq.groundSteering(0.0);
                         od4Turn.send(steerReq);
+
+                        std::this_thread::sleep_for(std::chrono::milliseconds(3 * delay));
+
+                         msg3.done(done);
+                        od4Command.send(msg3);
+
 
                         signSize = 0;
 

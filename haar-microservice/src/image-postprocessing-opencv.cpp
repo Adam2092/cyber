@@ -36,6 +36,7 @@ static int carRight = 0;
 static int queue = 0;
 bool countUp = true;
 bool carDetected = false;
+bool carReady = true;
 
 void detectAndDisplay( Mat frame )
 {
@@ -124,74 +125,74 @@ int32_t main(int32_t argc, char **argv) {
             cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
             // Endless loop; end the program by pressing Ctrl-C.
 
-       float tempDistReading{0.0};
-
-       float frontDistance{0.0};
-
-       float sideDistance{0.0};
+        
 
 
+//-------____----_--_----__-__----_-___---_____------__---___--______-----_--____-
 
-        auto onDistanceReading{[VERBOSE, &tempDistReading, &frontDistance, &sideDistance](cluon::data::Envelope &&envelope)
+        
 
-            // &<variables> will be captured by reference (instead of value only)
-
-            {
-
-                auto msg = cluon::extractMessage<opendlv::proxy::DistanceReading>(std::move(envelope));
-
-                const uint16_t senderStamp = envelope.senderStamp(); // Local variables are not available outside the lambda function
-
-                tempDistReading = msg.distance(); // Corresponds to odvd message set
+        float frontDistance{0.0};
+        float sideDistance{0.0};
 
 
 
-                    if (VERBOSE){
-
-                    }
-
-                    if(senderStamp == 0){
-
-                        frontDistance = tempDistReading;
-
-                    }else if(senderStamp == 1){
-
-                        sideDistance = tempDistReading;
-
-                    }
-
-
-
-
-
-            }
-
-        };
-
-        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), onDistanceReading);
-
-        auto carQueue{[VERBOSE, &frontDistance, &sideDistance, &queue, &carDetected](cluon::data::Envelope &&envelope)
+        auto carQueue{[&od4, VERBOSE, &frontDistance, &sideDistance, &queue, &carDetected, &carReady](cluon::data::Envelope &&envelope)
             // &<variables> will be captured by reference (instead of value only)
             {
+
+
+                auto msg = cluon::extractMessage<opendlv::proxy::startDistance>(std::move(envelope));
+                
+                 // Corresponds to odvd message set
+
+                frontDistance = msg.frontDistance();
+                sideDistance = msg.sideDistance();
+                
+                opendlv::proxy::goTime msg1;
+
+
+
+                std::cout << "prints if we are in the coutn down function" << std::endl;
                      const int16_t delay{500};
-                    if(frontDistance > 0.05 && frontDistance < 0.25){
-                        queue--;
-                        std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
-                    }if(sideDistance > 0.05 && sideDistance < 0.15){
-                        queue--;
-                        std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
+                    if(frontDistance > 0.1 && frontDistance < 1){
+
+                        std::cout << "prints if we are in the frontDistance and the distance is: (" << frontDistance << ")" << std::endl;
+
+                        queue -= 1;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10 * delay));
+                    }
+
+                    if(sideDistance > 0.1 && sideDistance < 1){
+
+                        std::cout << "prints if we are in the sideDistance and the distance is : (" << sideDistance << ")" << std::endl;
+
+                        queue -= 1;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10 * delay));
 
                     }
 
-                    if (carDetected)
+                    else if (carDetected)
                     queue--;
                     carDetected = false;
                     std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
 
+                    if(queue <= 0 && countUp == false){
+
+
+                        msg1.ready(carReady);
+
+                        od4.send(msg1);
+                    }
+
+
                 }
             };
 
-        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), carQueue);
+        od4.dataTrigger(opendlv::proxy::startDistance::ID(), carQueue);
+
+//----______--------_----____--____----_---_--------___---__---_-------__-------_----_-------_--__---__-------_-------_-------
+
 
         auto reachedStop{[&od4, &countUp](cluon::data::Envelope &&envelope)
           {
@@ -237,12 +238,13 @@ int32_t main(int32_t argc, char **argv) {
           
                 // Display image.
                 if (VERBOSE) {
-                    cv::imshow(sharedMemory->name().c_str(), frame);
+                    //cv::imshow(sharedMemory->name().c_str(), frame);
 
                     std::cout << "carLeft: " << carLeft << std::endl;
                     std::cout << "carForward: " << carForward << std::endl;
                     std::cout << "carRight: " << carRight << std::endl;
                     std::cout << "queue: " << queue << std::endl;
+                    std::cout << "countup is: " << countUp << std::endl;
                     cv::waitKey(1);
 
                 }

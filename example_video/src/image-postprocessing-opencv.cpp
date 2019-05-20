@@ -52,7 +52,7 @@ bool byStop = false;
 bool notRight = false;
 bool notLeft = false;
 bool notForward = false;
-bool countcars = true;
+
 
 double angle( Point pt1, Point pt2, Point pt0 ) {
     double dx1 = pt1.x - pt0.x;
@@ -360,6 +360,7 @@ void find_sign(Mat& image, vector<vector<Point> >& sign, int version )
                                 if(version == 1){
                                 notRight = true;
                                 std::cout << "sign 1: grön " << std::endl;
+                                std::cout << "bool for green is : " << notRight << std::endl;
                                 }
                                 if(version == 2){
                                 notLeft = true; 
@@ -403,6 +404,13 @@ int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::signRec msg3;
     opendlv::proxy::correctTurn msg4;
     opendlv::proxy::stopRequest msg5;
+    opendlv::proxy::startDistance msg6;
+
+        float tempDistReading{0.0};
+
+       float frontDistance{0.0};
+
+       float sideDistance{0.0};
 
 
     int32_t retCode{1};
@@ -431,6 +439,53 @@ int32_t main(int32_t argc, char **argv) {
 
 
 
+            cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
+
+
+//-------________-----_--__----_----____----___-----_-----____----______-----_--___--__----__---__----__---_-----
+
+        auto onDistanceReading{[VERBOSE, &tempDistReading, &frontDistance, &sideDistance](cluon::data::Envelope &&envelope)
+
+            // &<variables> will be captured by reference (instead of value only)
+
+            {
+
+                auto msg = cluon::extractMessage<opendlv::proxy::DistanceReading>(std::move(envelope));
+
+                const uint16_t senderStamp = envelope.senderStamp(); // Local variables are not available outside the lambda function
+
+                tempDistReading = msg.distance(); // Corresponds to odvd message set
+
+
+
+                    if (VERBOSE){
+
+                        //std::cout << "prints if we are in the find distance" << std::endl;
+
+
+                    }
+
+                    if(senderStamp == 0){
+
+                        frontDistance = tempDistReading;
+
+                    }else if(senderStamp == 1){
+
+                        sideDistance = tempDistReading;
+
+                    }
+
+
+
+
+
+            }
+
+        };
+
+        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), onDistanceReading);
+
+//-------___________---__-----------_____----__________---_-------__----_---_--__------__---------------_-------_--------
 
 
         // Attach to the shared memory.
@@ -439,7 +494,6 @@ int32_t main(int32_t argc, char **argv) {
             std::clog << argv[0] << ": Attached to shared memory '" << sharedMemory->name() << " (" << sharedMemory->size() << " bytes)." << std::endl;
 
             // Interface to a running OpenDaVINCI session; here, you can send and receive messages.
-            cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
 
             // Endless loop; end the program by pressing Ctrl-C.
             while (od4.isRunning()) {
@@ -494,12 +548,13 @@ int32_t main(int32_t argc, char **argv) {
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
 
+                
               
                 // Display image.
                 if (VERBOSE) {
 
 
-                   if(notRight == true || notLeft == true || notForward == true){
+                    if(notRight == true || notForward == true || notLeft == true){                    
 
                         msg3.rightSign(notRight);
 
@@ -507,7 +562,12 @@ int32_t main(int32_t argc, char **argv) {
 
                         msg3.straightSign(notForward);
 
-                        od4.send(msg);
+                        od4.send(msg3);
+
+                        std::cout << "bool for green is : " << notRight << std::endl;
+
+
+                        std::cout << "sending sign stuff" << std::endl;
 
                    }
                   
@@ -536,7 +596,7 @@ int32_t main(int32_t argc, char **argv) {
                     }
 
                     //if byStop is true (we are by the stopsign), we stop following the car in front of us.
-                     else if (byStop == true && counter == 0)
+                     else if (byStop == true)
                     {
                      bool stopseq = true;
 
@@ -552,6 +612,19 @@ int32_t main(int32_t argc, char **argv) {
                         
 
                         //counter += 1;
+                    }else if (stop == true){
+
+                        
+
+                        
+                        std::cout << "sending to object" << std::endl;
+
+
+
+                        msg6.frontDistance(frontDistance);
+                        msg6.sideDistance(sideDistance);
+                        od4.send(msg6);
+
                     }
 
                    
@@ -579,6 +652,10 @@ int32_t main(int32_t argc, char **argv) {
 //----------____________----_____---__------______---_----____----_--__---______---__------__---_----------_----------------__---_-------_
 
 
+ 
+
+
+/*
        float tempDistReading{0.0};
        float frontDistance{0.0};
        float sideDistance{0.0};
@@ -667,7 +744,7 @@ int32_t main(int32_t argc, char **argv) {
         };
 
         od4.dataTrigger(opendlv::proxy::stopDone::ID(), carQueue);
-
+ */
 
 //-------_____________---___---_----___-----____-----_----_----_--___---__---___---___--___---__---_---------------_--_________-----_-------__----_-                    
 
@@ -691,11 +768,19 @@ int32_t main(int32_t argc, char **argv) {
         };
         od4.dataTrigger(opendlv::proxy::stopDone::ID(), stopDone);
 
+//-------________-----_--__------_--------__---__----_-------_----_-----------------
+
+
 //-------_____---__---__----_-___---___--__----____________----___--__----__---_______----__----__---_-----_---------_____----__--------__---        
 
                 }
             }
         }
+
+
+
+
+
 
 //----------____________----_----______---_____-----___---________---__---__---__----____----_-------_----_-------_----_--__-
 

@@ -396,3 +396,7 @@ message opendlv.proxy.signRec [id = 3002] {
   bool leftSign [id = 2];
   bool straightSign [id = 3];
 }
+
+message opendlv.proxy.goTime [id = 3010] {
+  bool ready [id = 1];
+}
