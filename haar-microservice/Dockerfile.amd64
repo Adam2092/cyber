@@ -24,8 +24,8 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
         cmake \
         g++ \
         git \
-        opencv \
-        opencv-dev \
+	opencv\
+	opencv-dev\
         make
 ADD . /opt/sources
 WORKDIR /opt/sources
@@ -42,4 +42,3 @@ WORKDIR /usr/bin
 COPY --from=builder /tmp/bin/image-postprocessing-opencv .
 COPY cascade/car-28.xml .
 ENTRYPOINT ["/usr/bin/image-postprocessing-opencv"]
-

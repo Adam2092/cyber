@@ -381,3 +381,6 @@ message opendlv.proxy.stopReading [id = 1558] {
   float stop [id = 1];
 }
 
+message opendlv.proxy.stopDone [id=3005]{
+  bool done [id=1];
+}
