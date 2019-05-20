@@ -24,20 +24,22 @@
 #include "cluon-complete.hpp"
 #include "messages.hpp"
 
-int32_t turnLeft();
-int32_t turnRight();
-int32_t goStraight();
+
+
 
 int32_t main(int32_t argc, char **argv) {
 
 
-	bool turn = false;
-	bool follow = false;
-	bool followCar = true;
-	std::string direction = ""; 
+    bool turn = false;
+    bool follow = false;
+    
+
+    bool tempStop = false;
+    std::string direction = ""; 
     std::string stopping = ""; 
 
-	
+
+    
 
     std::cout << "this is testing the commandline";
     // Parse the arguments from the command line
@@ -54,6 +56,7 @@ int32_t main(int32_t argc, char **argv) {
     }
     else
     {
+        cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         cluon::OD4Session od4Drive{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         cluon::OD4Session od4Turn{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
         cluon::OD4Session od4Command{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
@@ -79,22 +82,27 @@ int32_t main(int32_t argc, char **argv) {
 
 //_________---------______----------___-----_-------______---________-----_--_----___---___--__________----______--_-------__-_______----__------_-
 
-      		  
+              
 
 
 //-------_______-------___-------___---_________----____----_--_____________----_----___---_----_----________---_______-------___--------__---__----
 
-  auto commandHandler{[&od4Command, VERBOSE, &turn, &follow, &direction, &followCar](cluon::data::Envelope &&envelope)
+  auto commandHandler{[&od4Command, &od4Drive, &od4Turn, VERBOSE, &turn, &follow, &direction](cluon::data::Envelope &&envelope)
 
-        	{
+            {
 
-        		           
+                           
 
 
             
             //declear msg to sabe whats recieved from custom message
             auto msg = cluon::extractMessage<opendlv::proxy::instructions>(std::move(envelope));
             //trash shit to avoid errors
+
+            const int16_t delay{500};
+
+            opendlv::proxy::PedalPositionRequest pedalReq;
+            opendlv::proxy::GroundSteeringRequest steerReq;
 
             //save content from message into tempSize
             turn = msg.turn(); // Corresponds to odvd message set
@@ -103,29 +111,90 @@ int32_t main(int32_t argc, char **argv) {
 
 
 
-        		if(VERBOSE){
+                if(VERBOSE){
 
-        			   if(turn == true && direction == "left"){
-        			   	turnLeft();
-        			   }else if(turn == true && direction == "right"){
-        			   	turnRight();
-        			   }else if(turn == true && direction == "straight"){
-        			   	goStraight();
-        			   }else if(follow == true){
-                        followCar = true;
+                       if(turn == true && direction == "left"){
+
+                        steerReq.groundSteering(0.13);
+                        od4Turn.send(steerReq);
+
+               
+                //if(VERBOSE){
+
+                    //set speed
+                        pedalReq.position(0.14);
+                        od4Drive.send(pedalReq);
+
+                    //for how long we gasar
+                        std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
+
+                        pedalReq.position(0.0);
+                        od4Drive.send(pedalReq);
+
+                    //reset wheels
+                        steerReq.groundSteering(0.0);
+                        od4Turn.send(steerReq);
+
+//----___________--------__---_--______-----_--__---_-------___---_----_-------___---_______----_----_-------_-------_------
+                        
+                       }else if(turn == true && direction == "right"){
+
+                        steerReq.groundSteering(-0.37);
+                        od4Turn.send(steerReq);
+
+               
+                //if(VERBOSE){
+
+                    //set speed
+                        pedalReq.position(0.14);
+                        od4Drive.send(pedalReq);
+
+                    //for how long we gasar
+                        std::this_thread::sleep_for(std::chrono::milliseconds(5 * delay));
+
+                        pedalReq.position(0.0);
+                        od4Drive.send(pedalReq);
+
+                    //reset wheels
+                        steerReq.groundSteering(0.0);
+                        od4Turn.send(steerReq);
+
+//------------_________-----_--___--__---______-----___---______-----_-__----_-------___-----___-----_----__----_----_--__---__------                        
+
+                       }else if(turn == true && direction == "straight"){
+
+                            steerReq.groundSteering(0.0);
+                            od4Turn.send(steerReq);
+
+
+                            pedalReq.position(0.15);
+                            od4Drive.send(pedalReq);
+
+                    //for how long we gasar
+                            std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
+
+                            pedalReq.position(0.0);
+                            od4Drive.send(pedalReq);
+
+                            steerReq.groundSteering(0.0);
+                            od4Turn.send(steerReq);
+                        
+                       }else if(follow == true){
+                        
                        }
-        		}
+                }
 
-        	}
+            }
 
         };
 
-                	od4Command.dataTrigger(opendlv::proxy::instructions::ID(), commandHandler);      		  
+                    od4Command.dataTrigger(opendlv::proxy::instructions::ID(), commandHandler);               
 
 
 //----------____________----__---__----________-----________--------------_-----__------____-------__---__------_---_---_--------______----------__
      
      float tempTurn{0.0};
+
         
         //declearing function and lambda function
         auto onTurn{[&od4Turn, VERBOSE, &tempTurn](cluon::data::Envelope &&envelope)
@@ -189,6 +258,33 @@ int32_t main(int32_t argc, char **argv) {
         };
 
 
+//--_________----_-------__-------_---_---_-------_----_--__---------------_----_-------__-------_----_----_--__----_----_----
+
+
+       float tempDistReading{0.0};
+       float frontDistance{0.0};
+        auto onDistanceReading{[VERBOSE, &tempDistReading, &frontDistance](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+                auto msg = cluon::extractMessage<opendlv::proxy::DistanceReading>(std::move(envelope));
+                const uint16_t senderStamp = envelope.senderStamp(); // Local variables are not available outside the lambda function
+                tempDistReading = msg.distance(); // Corresponds to odvd message set
+
+                if(senderStamp == 0){
+
+                    if (VERBOSE)
+                {
+                    frontDistance = tempDistReading;
+                }
+
+                }
+                
+            }
+        };
+
+        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), onDistanceReading);
+ 
+       
     
 
             
@@ -197,104 +293,210 @@ int32_t main(int32_t argc, char **argv) {
 
 //---------------_____-------------------------------__---------_____-----____-------------------________________---___-----_-------_-------_--
             
-       float tempSize{0.0};
+        
         
         //declearing function and lambda function
-        auto onFollow{[&od4Drive, VERBOSE, &tempSize, &stopping](cluon::data::Envelope &&envelope)
+        auto onFollow{[&od4Drive, VERBOSE, &stopping, &frontDistance](cluon::data::Envelope &&envelope)
             // &<variables> will be captured by reference (instead of value only)
             {
-            
 
-                std::cout << "recieved size from camera-microcontroler"  << std::endl;
+               // const int16_t delay{500};
+
+            
+               
+                //std::cout << "recieved size from camera-microcontroler"  << std::endl;
 
             //declear msg to sabe whats recieved from custom message
-            auto msg1 = cluon::extractMessage<opendlv::proxy::sizeReading>(std::move(envelope));
+          
             //trash shit to avoid errors
+            auto msg2 = cluon::extractMessage<opendlv::proxy::stopRequest>(std::move(envelope));
+
             
            
             //save content from message into tempSize
-            tempSize = msg1.size(); // Corresponds to odvd message set
-            stopping = msg1.stop();
-           
+            // Corresponds to odvd message set
+            stopping = msg2.stopping();
+            
+
             //declear message in order to send pedal request
             opendlv::proxy::PedalPositionRequest pedalReq;
             if(VERBOSE){
 
+
+
             if(stopping == "stop"){
 
+                std::cout << "recieved: (" << stopping << ") prepaing to stop" << std::endl;
+
+                        
                 pedalReq.position(0.0);
                 od4Drive.send(pedalReq);
 
-                std::cout << "no square, stopping car" << std::endl;
+                //std::cout << "no square, stopping car" << std::endl;
 
-            }   
+               
+            }else{
+
+            }
 
 
 
-            if(tempSize > 0 && tempSize < 10000){
+            if(frontDistance > 0.2 && frontDistance < 1){
          
                 
 
-                std::cout << "reacted on square, size is: (" << tempSize << ") " <<" sending: 0.3 to adjust speed" << std::endl;
+                std::cout << "reacted on square, size is: (" << frontDistance << ") " <<" sending: 0.3 to adjust speed" << std::endl;
 
-                    pedalReq.position(0.12);
+                    pedalReq.position(0.125);
                     od4Drive.send(pedalReq);
 
-                                std::cout << "sending speed to car " << std::endl;
-
-
-            }else if(tempSize > 10001 && tempSize < 20000){
-
-                
-
-                std::cout << "reacted on square, size is: (" << tempSize << ") " <<" sending: 0.26 to adjust speed" << std::endl;
-
-                    pedalReq.position(0.11);
-                    od4Drive.send(pedalReq);
-
-                                std::cout << "sending speed to car " << std::endl;
-
-
-            }else if(tempSize > 20001 && tempSize < 30000){
-
-              
-
-                std::cout << "reacted on square, size is: (" << tempSize << ") " << " sending: 0.21 to adjust speed" << std::endl;
-
-                pedalReq.position(0.105);
-                    od4Drive.send(pedalReq);
-
-                                std::cout << "sending speed to car " << std::endl;
-
-
-            }else if(tempSize > 30001 && tempSize < 40000){
-
-                
-
-                std::cout << "reacted on square, size is: (" << tempSize << ") " <<" sending: 0.18 to adjust speed" << std::endl;
-
-                pedalReq.position(0.1);
-                    od4Drive.send(pedalReq);
-
-                                std::cout << "sending speed to car " << std::endl;
+                            //    std::cout << "sending speed to car " << std::endl;
 
 
             }else{
 
+                std::cout << "to close to car, stopping" << std::endl;
+
+                
+
+
                 pedalReq.position(0.0);
                     od4Drive.send(pedalReq);
 
-                                std::cout << "sending speed to car " << std::endl;
+                             //   std::cout << "sending speed to car " << std::endl;
 
-            
+                          
 
-                std::cout << "this is the else" << std::endl;
+               // std::cout << "this is the else" << std::endl;
 
             }
 
             
-            std::cout << "sending speed to car " << std::endl;
+           // std::cout << "sending speed to car " << std::endl;
 
+           
+
+            }
+
+               
+
+            }   
+
+        };
+
+
+       
+            od4Drive.dataTrigger(opendlv::proxy::correctTurn::ID(), onTurn);
+            od4Drive.dataTrigger(opendlv::proxy::correctTurn::ID(), onFollow);
+           
+
+    
+        
+//------------____________-------___---_----_-----_____---____----______--___---__---_----------_----_____---___---__---_-------___---__---_-------__--
+
+
+
+//-------_____________------__---__----_______----_____-----__---------_____---___---__________----__---___--__----________---__---__----_----_--__----_----_
+
+
+        int counter = 0;
+        float signSize{0.0};
+        bool done = false;
+        
+        //declearing function and lambda function
+        auto stopFollow{[&od4Turn, &od4Drive, &od4Command, VERBOSE, &frontDistance, &tempStop, &counter, &signSize, &done](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+            
+                std::cout <<"entering the stop function" << std::endl;
+
+            
+
+            //declear msg to sabe whats recieved from custom message
+            auto msg1 = cluon::extractMessage<opendlv::proxy::stopReading>(std::move(envelope));
+
+           
+
+            tempStop = msg1.stop();
+
+            signSize = msg1.signSize();
+
+            
+
+
+            //trash shit to avoid errors
+            
+            const int16_t delay{500};
+
+            //std::this_thread::sleep_for(std::chrono::milliseconds(10* delay));
+            
+            opendlv::proxy::PedalPositionRequest pedalReq;
+            opendlv::proxy::GroundSteeringRequest steerReq;
+            opendlv::proxy::stopDone msg3;
+
+
+
+           
+            //declear message in order to send pedal request
+            
+            if(VERBOSE){
+
+               std::cout << "signsize outside while is: (" << signSize << ")" << std::endl;
+
+
+
+                        while(signSize < 4300 && frontDistance > 0.2 && frontDistance < 1.3){
+
+                        std::cout << "signsize in while is: (" << signSize << ")" << std::endl;
+
+                        pedalReq.position(0.125);
+                        od4Drive.send(pedalReq);
+
+                          }
+
+
+                            msg3.done();
+
+                            od4Command.send(msg3);
+
+
+                            pedalReq.position(0.0);
+                            od4Drive.send(pedalReq);
+            
+                std::cout << " distance is: (" << frontDistance << ")" << std::endl; 
+
+                if (frontDistance > 0.60 && counter < 1){
+
+                    
+
+                    counter += 1;
+
+                    //std::cout << "counter is : " << counter << std::endl;
+
+                            steerReq.groundSteering(-0.02);
+                            od4Turn.send(steerReq);
+
+
+                            pedalReq.position(0.125);
+                            od4Drive.send(pedalReq);
+
+                    //for how long we gasar
+                            std::this_thread::sleep_for(std::chrono::milliseconds(5 * delay));
+
+                            pedalReq.position(0.0);
+                            od4Drive.send(pedalReq);
+
+                            steerReq.groundSteering(0.0);
+                            od4Turn.send(steerReq);
+
+                            signSize = 0;
+
+                            std::cout << "end of verbose if, finished stopping" << std::endl;
+
+
+                }   
+
+            
 
             }
 
@@ -302,68 +504,28 @@ int32_t main(int32_t argc, char **argv) {
 
         };
 
+      
 
-        while(followCar == true){
+         od4Command.dataTrigger(opendlv::proxy::stopReading::ID(), stopFollow);
 
-            od4Drive.dataTrigger(opendlv::proxy::correctTurn::ID(), onTurn);
-        	od4Drive.dataTrigger(opendlv::proxy::sizeReading::ID(), onFollow);
-
-        }
-        
-
-
+    
 
 
 //---------------______-----------____----_----__----____----_____----__----____________----__----_______----_----_______----_----------_--_______________---_-
 
         while(od4Drive.isRunning()){
 
-        	const int16_t delay{1000};
+            const int16_t delay{1000};
 
-        	std::cout << "od4 is running" << std::endl;
+            std::cout << "od4 is running" << std::endl;
 
-        	std::this_thread::sleep_for(std::chrono::milliseconds(3 * delay));
+            std::this_thread::sleep_for(std::chrono::milliseconds(3 * delay));
 
         }
 
         return 0;
     }
-}
+ }
 
 
 
-
-		int32_t turnLeft(){
-
-        				   std::cout << "Turning left " << std::endl;
-
-
-        					return 0;
-
-        			}
-
-      		  
-
-//----------_____--------______---__---_____---___-----------_----__---___----------------_-----_-__----__---_____------_______----_______--------_-----
-
-      	int32_t turnRight(){
-
-
-        				   std::cout << "Turning right " << std::endl;
-
-
-        				
-        				   	return 0;
-        			}
-
-//----------_____--------______---__---_____---___-----------_----__---___----------------_-----_-__----__---_____------_______----_______--------_-----
-
-      	int32_t goStraight(){
-
-
-        				   std::cout << "going straight" << std::endl;
-
-
-        				
-        				   	return 0;
-        			}

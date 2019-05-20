@@ -368,7 +368,10 @@ message opendlv.logic.cognition.GroundSpeedLimit [id = 1192] {
 
 message opendlv.proxy.sizeReading [id = 2999] {
   float size [id = 1];
-  string stop [id = 2];
+}
+
+message opendlv.proxy.stopRequest [id = 2998] {
+  string stopping [id = 2];
 }
 
 
@@ -379,15 +382,23 @@ message opendlv.proxy.signRec [id = 3002] {
 }
 
 message opendlv.proxy.stopReading [id = 1558] {
-  float stop [id = 1];
+  bool stop [id = 1];
+  float signSize [id = 2];
 }
 
-message opendlv.proxy.correctTurn [id = 3004]{
+
+message opendlv.proxy.correctTurn [id = 3004] {
   double offset [id = 1];
 }
 
+<<<<<<< HEAD
 message opendlv.proxy.stopRequest [id = 2998] {
  string stopping [id = 2];
 }
 
+=======
+message opendlv.proxy.stopDone [id = 3005] {
+  bool done [id = 1];
+}
+>>>>>>> 375a8aac1ccad46f1bb3285a994628b1f8513c26
 

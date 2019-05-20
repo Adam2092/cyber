@@ -36,10 +36,16 @@ const int max_value_H = 180;
 const int max_value = 255;
 
 
+float stopSize{0.0};
+
 int low_H = 0, low_S = 0, low_V = 0;
 int high_H = 179, high_S = 255, high_V = 255;
 
-int counter = 0;
+
+bool stop = false;
+
+//int counter = 0;
+
 int stopCounter = 0;
 
 bool byStop = false;
@@ -248,11 +254,16 @@ void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
                     }
 
                 //if stopsign is between the area 14000 and 155000, it means we are close enough to begin the stop sequence.
-         if (stopSigns.size() > 0 && contourArea(stopSigns[0]) >4300 && contourArea(stopSigns[0]) < 5000)
+
+         if (stopSigns.size() > 0 && contourArea(stopSigns[0]) >3000)
+
          {
             //sets bystop boolean to true
            std::cout << "close to stop sign, start hardcoded sequence" << std::endl;
            byStop = true;
+
+           stopSize = contourArea(stopSigns[0]);
+
          }
 
         else 
@@ -482,8 +493,7 @@ int32_t main(int32_t argc, char **argv) {
                 find_sign(sign1_threshold, sign, 1);
                 find_sign(sign2_threshold, sign, 2);
                 find_sign(sign3_threshold, sign, 3);
-                cv::imshow("stopskylt", stop_threshold);
-                cv::imshow("kukbil", frame_threshold);
+
               
                 // Display image.
                 if (VERBOSE) {
@@ -506,13 +516,9 @@ int32_t main(int32_t argc, char **argv) {
                  
 
                     // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
-                   if (squares.size() > 0 && byStop == false)
+                   if (squares.size() > 0 && byStop == false && stop == false)
                     {
                         float carSize = contourArea(squares[0]);
-
-                        msg.size(carSize);
-
-                        od4.send(msg);
 
                         std::cout << "found square " << std::endl;
                         std::cout << carSize << std::endl;
@@ -536,19 +542,20 @@ int32_t main(int32_t argc, char **argv) {
 
                      std::cout << "sending stopsign bajs" << std::endl;
 
-                        msg5.stopping("stop");
-
-                        od4.send(msg5);
 
 
                         msg2.stop(stopseq);
 
+                        msg2.signSize(stopSize);
+
                         od4.send(msg2);
                         
-                        counter += 1;
+
+                        //counter += 1;
                     }
 
-                 
+                   
+
                     //if car infront is not detected, stop pedal.
                     else if(stopCounter < 3)
                     {
@@ -568,6 +575,31 @@ int32_t main(int32_t argc, char **argv) {
 
 
                     cv::waitKey(1);
+
+//----------____________----_____---__------______---_----____----_--__---______---__------__---_----------_----------------__---_-------_
+
+        
+
+        auto stopDone{[VERBOSE, &byStop](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+                auto msg9 = cluon::extractMessage<opendlv::proxy::stopDone>(std::move(envelope));
+                
+                 // Corresponds to odvd message set
+
+                stop = true;
+                
+                byStop = msg9.done();  
+
+
+                
+                
+            }
+        };
+        od4.dataTrigger(opendlv::proxy::stopDone::ID(), stopDone);
+
+//-------_____---__---__----_-___---___--__----____________----___--__----__---_______----__----__---_-----_---------_____----__--------__---        
+
                 }
             }
         }
