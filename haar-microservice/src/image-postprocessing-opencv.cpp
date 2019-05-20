@@ -34,10 +34,8 @@ static int carLeft = 0;
 static int carForward = 0;
 static int carRight = 0;
 static int queue = 0;
-static int middleCarCounter = 9
-boolean countUp = true;
-middleCarGone = false;
-boolean carDetected = false;
+bool countUp = true;
+bool carDetected = false;
 
 void detectAndDisplay( Mat frame )
 {
@@ -91,6 +89,7 @@ void detectAndCountdown( Mat frame ){
   {
     carDetected = true;
   }
+}
 }
 }
 
@@ -174,8 +173,6 @@ int32_t main(int32_t argc, char **argv) {
         auto carQueue{[VERBOSE, &frontDistance, &sideDistance, &queue, &carDetected](cluon::data::Envelope &&envelope)
             // &<variables> will be captured by reference (instead of value only)
             {
-                auto msg7 = cluon::extractMessage<opendlv::proxy::stopDone>(std::move(envelope));
-                     tempTrigger = msg7.done();
                      const int16_t delay{500};
                     if(frontDistance > 0.05 && frontDistance < 0.25){
                         queue--;
@@ -237,7 +234,7 @@ int32_t main(int32_t argc, char **argv) {
             detectAndCountdown( frame );
 
             }
-          }
+          
                 // Display image.
                 if (VERBOSE) {
                     cv::imshow(sharedMemory->name().c_str(), frame);
