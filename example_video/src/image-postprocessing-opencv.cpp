@@ -34,12 +34,26 @@ using namespace std;
 
 const int max_value_H = 180;
 const int max_value = 255;
+int carleft = 0;
+int carright = 0;
+int carforward = 0;
+int queue = 0;
+
+float stopSize{0.0};
+
 int low_H = 0, low_S = 0, low_V = 0;
 int high_H = 179, high_S = 255, high_V = 255;
+
+bool stop = false;
+
+//int counter = 0;
+int stopCounter = 0;
+
 bool byStop = false;
 bool notRight = false;
 bool notLeft = false;
 bool notForward = false;
+bool countcars = true;
 
 double angle( Point pt1, Point pt2, Point pt0 ) {
     double dx1 = pt1.x - pt0.x;
@@ -48,7 +62,6 @@ double angle( Point pt1, Point pt2, Point pt0 ) {
     double dy2 = pt2.y - pt0.y;
     return (dx1*dx2 + dy1*dy2)/sqrt((dx1*dx1 + dy1*dy1)*(dx2*dx2 + dy2*dy2) + 1e-10);
 }
-
 
 
 void find_squares(Mat& image, vector<vector<Point> >& squares)
@@ -97,12 +110,14 @@ void find_squares(Mat& image, vector<vector<Point> >& squares)
                     // area may be positive or negative - in accordance with the
                     // contour orientation
                     //checks for amount of vector points, if == 4 (square) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
-                    if (approx.size() == 4 &&
+
+                    if (approx.size() > 3 && approx.size() < 9 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
                             double maxCosine = 0;
 
+                            std::cout << "vectores of squares is: (" << approx.size() << ")" << std::endl;
                             //checks the angles between vectors to see if it's a reasonable angle, and if it's accepted, the square is added to the squares list.
                             for (int j = 2; j < 5; j++)
                             {
@@ -110,7 +125,7 @@ void find_squares(Mat& image, vector<vector<Point> >& squares)
                                     maxCosine = MAX(maxCosine, cosine);
                             }
 
-                            if (maxCosine < 0.3)
+                            if (maxCosine < 0.7)
                                     squares.push_back(approx);
                     }
             }
@@ -134,10 +149,12 @@ Mat debugSquares( vector<vector<Point> > squares, Mat image )
 }
 
 //this method corrects the car's placement depending on the car in front (pos is the centre of the acc car)
-void correct_turn(vector<Point> squares)
+double correct_turn(vector<Point> squares)
 {
     Rect rect = boundingRect(Mat(squares));
     double pos = rect.x+(rect.width/2);
+    double offset = pos - 320;
+
     std::cout << "rect pos is: " << pos << std::endl;
    if( pos < 220)
     {
@@ -159,6 +176,7 @@ void correct_turn(vector<Point> squares)
     {
      std::cout << "no correction" << std::endl;   
     }
+    return offset;
 }
 
 
@@ -214,6 +232,9 @@ void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
+
+                               // std::cout << "vectors of stopsign : (" << approx.size() << ")" << std::endl;
+
                             double maxCosine = 0;
                             for (int j = 2; j < 6; j++)
                             {
@@ -229,16 +250,19 @@ void find_stop(Mat& image, vector<vector<Point> >& stopSigns)
         }
     }    if (stopSigns.size() > 0)
                     {
-                        std::cout << "found sign" << std::endl;
+                        std::cout << "found stop sign" << std::endl;
                         std::cout << contourArea(stopSigns[0]) << std::endl;
                     }
 
                 //if stopsign is between the area 14000 and 155000, it means we are close enough to begin the stop sequence.
-         if (stopSigns.size() > 0 && contourArea(stopSigns[0]) >14000 && contourArea(stopSigns[0]) < 15500)
+         if (stopSigns.size() > 0 && contourArea(stopSigns[0]) >3000)
          {
             //sets bystop boolean to true
            std::cout << "close to stop sign, start hardcoded sequence" << std::endl;
            byStop = true;
+
+           stopSize = contourArea(stopSigns[0]);
+
          }
 
         else 
@@ -314,7 +338,7 @@ void find_sign(Mat& image, vector<vector<Point> >& sign, int version )
                      //checks for amount of vector points, if  amount of vectors are between 2-->8 (Triangle) and its area is bigger than 1000 pixels and makes sure that the vectors aren't going through the square (goes for corners)
                     //                                                              The reason for 2-->8 instead of only 3 is because of the imperfection of the triangle making small vectors appear.
                     // triangle will not be as sharp as preffered, which makes the corners a bit round, hence why the big window of vectors are allowed.
-                    if (approx.size() > 2 && approx.size() < 6 &&
+                    if (approx.size() > 2 && approx.size() < 9 &&
                             fabs(contourArea(Mat(approx))) > 1000 &&
                             isContourConvex(Mat(approx)))
                     {
@@ -334,15 +358,18 @@ void find_sign(Mat& image, vector<vector<Point> >& sign, int version )
 
                                 if(version == 1){
                                 notRight = true;
-                               std::cout << "not allowed to turn right: " << notRight << std::endl;
+                                std::cout << "sign 1: grön " << std::endl;
                                 }
                                 if(version == 2){
-                                notLeft = true;
-                                std::cout << "not allowed to turn left: " << notRight << std::endl;
+                                notLeft = true; 
+                                std::cout <<"sign 2: rosa" << std::endl;
+                                //std::cout << "vectors of pink : (" << approx.size() << ")" << std::endl;
+                                //std::cout << "not allowed to turn left: " << std::endl;
                                 }
                                 if(version == 3){
                                 notForward = true;
-                                std::cout << "not allowed to go straight: " << notRight << std::endl;
+                                std::cout << "sign 3: lila " << std::endl;
+                                //std::cout << "vectors of purple : (" << approx.size() << ")" << std::endl;
                                 }
                             }
                     }
@@ -368,12 +395,61 @@ Mat debugSign(vector<vector<Point> > sign, Mat image )
 }
 
 
+void carCount(vector<vector<Point> >& amountcars)
+{
+    for ( unsigned int i = 0; i < amountcars.size(); i++)
+    {
+    Rect rect = boundingRect(Mat(amountcars[i]));
+    double carpos = rect.x;
+    //if a car is detected to the left and no previous car is detected, add 1 to carleft
+        if (carpos < 160 && carleft < 1)
+        {
+        carleft ++;
+        queue ++;
+        
+        }
+        //if a car is detected in the middle and no previous car is detected, add 1 to carforward
+        if (carpos > 160 && carpos < 425 && carforward < 1)
+        {
+        carforward ++;
+        queue++;
+        }
+         if (carpos > 425 && carright < 1)
+        {
+        queue++;
+        carforward ++;
+        }
+    }
+}
+
+void countDown(vector<vector<Point> >& amountcars)
+{
+    for ( unsigned int i = 0; i < amountcars.size(); i++)
+    {
+    Rect rect = boundingRect(Mat(amountcars[i]));
+    double carposx = rect.x;
+    double carposy = rect.y;
+
+        if (carposx < 370 && carposx > 140 && carposy > 190 && carposy < 360)
+        {
+        queue --;
+        }
+    }
+}
+
 
 int32_t main(int32_t argc, char **argv) {
     opendlv::proxy::sizeReading msg;
     opendlv::proxy::stopReading msg2;
+    opendlv::proxy::signRec msg3;
+    opendlv::proxy::correctTurn msg4;
+    opendlv::proxy::stopRequest msg5;
+
+
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
+
+
     
 
     if ( (0 == commandlineArguments.count("cid")) ||
@@ -393,6 +469,10 @@ int32_t main(int32_t argc, char **argv) {
         const uint32_t WIDTH{static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
         const uint32_t HEIGHT{static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
         const bool VERBOSE{commandlineArguments.count("verbose") != 0};
+
+
+
+
 
         // Attach to the shared memory.
         std::unique_ptr<cluon::SharedMemory> sharedMemory{new cluon::SharedMemory{NAME}};
@@ -426,29 +506,28 @@ int32_t main(int32_t argc, char **argv) {
                 
                 // TODO: Do something with the frame.
                 //declaring hsv, hsv threshold frames.
-                cv::Mat frame_HSV;//, stop_HSV;
-                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold;//, stop_threshold;
+                cv::Mat frame_HSV;
+                cv::Mat frame_threshold, stop_threshold, sign1_threshold, sign2_threshold, sign3_threshold, cars_threshold;//, stop_threshold;
                 //different lists for squares (acc car), stopsign and signs for turning rules
                 vector<vector<Point> > squares;
                 vector<vector<Point> > stopSigns;
                 vector<vector<Point> > sign;
+                vector<vector<Point> > cars;
 
-                //crop image to reduce the amount of pixels to check for the algorithm.
-                //cv::Rect croptest(0, 0, 640, 370); 
-                //cv::Rect cropSign(450, 30, 620, 380);
-                //cv::Mat croppedImage = img(croptest);
-                //cv::Mat croppedStop = cropCopy(cropSign);
-
+               
                 //converts the image that we copied from shared memory to HSV and save it as an HSV image called frame_HSV
                 cvtColor(img, frame_HSV, COLOR_BGR2HSV);
                 
                 //sets the Hue/Saturation/Value for the different thresholds depending on if it's looking for car/stopsign/signs. (stop is red, car is blue and signs are green)
-                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold); // Stop sign (red)
-                inRange(frame_HSV, Scalar(72, 150, 38), Scalar(126, 255, 128), frame_threshold); // Acc car (dark blue)
-                inRange(frame_HSV, Scalar(55, 92, 43), Scalar(88, 171, 100), sign1_threshold); //Green
-                inRange(frame_HSV, Scalar(88, 174, 86), Scalar(126, 235, 139), sign2_threshold); //Blue
-                inRange(frame_HSV, Scalar(5, 105, 101), Scalar(30, 210, 171), sign3_threshold); //Yellow
-               
+                inRange(frame_HSV, Scalar(170, 175, 35), Scalar(180, 255, 180), stop_threshold);   // Stop sign (red)
+                inRange(frame_HSV, Scalar(68, 148, 80), Scalar(116, 208, 126), frame_threshold);  // Acc car (dark blue)
+                inRange(frame_HSV, Scalar(52, 97, 78), Scalar(88, 181, 125), sign1_threshold);   //Green
+                inRange(frame_HSV, Scalar(154, 135, 113), Scalar(170, 224, 176), sign2_threshold);//rosa
+                inRange(frame_HSV, Scalar(114, 111, 102), Scalar(134, 183, 169), sign3_threshold);//Yellow
+                
+                
+
+
                 //calls on the find methods with the threshold frames and the list which the object will be saved in
                 find_squares(frame_threshold, squares);
                 find_stop(stop_threshold, stopSigns);
@@ -459,72 +538,77 @@ int32_t main(int32_t argc, char **argv) {
               
                 // Display image.
                 if (VERBOSE) {
-                    //displays window where it will draw the objects and their boundry rectangles.
-                   cv::imshow("funspace", debugSquares(squares, img));
-                   cv::imshow("funspace", debugStop(stopSigns, img));
-                   cv::imshow("funspace", debugSign(sign, img));
 
-                   //cv::imshow("thresholdSign", sign_threshold);
-                  
-                                 
 
-                // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
-                   if (squares.size() > 0 && byStop == false)
-                    {
-                        float carSize = contourArea(squares[0]);
+                   if(notRight == true || notLeft == true || notForward == true){
 
-                        msg.size(carSize);
+                        msg3.rightSign(notRight);
+
+                        msg3.leftSign(notLeft);
+
+                        msg3.straightSign(notForward);
 
                         od4.send(msg);
+
+                   }
+                  
+
+                    //counts amount of cars in intersection  s
+                    if (countcars==true)
+                    {           
+                    carCount(cars);
+                    }
+
+                    // if blue square(car) is detected and byStop is not true, sets speed depending on size of rectangle (distance to other car)
+                   if (squares.size() > 0 && byStop == false && stop == false)
+                    {
+                        float carSize = contourArea(squares[0]);
 
                         std::cout << "found square " << std::endl;
                         std::cout << carSize << std::endl;
 
-                        correct_turn(squares[0]);
+                        double offset = correct_turn(squares[0]);
 
-                        if(carSize > 35000)
-                        {
-                         std::cout << "car close, prepare for impact! pedal 0 " << std::endl;   
-                        }
 
-                        else if (carSize > 25000)
-                        {
-                         std::cout << "car close range,     pedal 0.05 " << std::endl;   
-                        }
+                        msg4.offset(offset);
 
-                        else if (carSize > 15000)
-                        {
-                         std::cout << "car medium range,    pedal 0.10 " << std::endl;
-                        }
+                        od4.send(msg4);
 
-                        else if (carSize > 10000)
-                        {
-                         std::cout << "car long range,      pedal 0.15 " << std::endl;
-                        }
+                        stopCounter = 0;
 
-                        else
-                        {
-                         std::cout << "car very long range, pedal 0.20" << std::endl;
-                        }
                         
                     }
 
                     //if byStop is true (we are by the stopsign), we stop following the car in front of us.
                      else if (byStop == true)
                     {
-                     float leavingCar = contourArea(squares[0]);
-                     bool stopseq = false;
-                     if (leavingCar > 10000)
-                     {
+                     bool stopseq = true;
+
+                     std::cout << "sending stopsign bajs" << std::endl;
+
+                     
+
                         msg2.stop(stopseq);
 
+                        msg2.signSize(stopSize);
+
                         od4.send(msg2);
+                        
+                        //counter += 1;
                     }
-                    }
+
+                   
                     //if car infront is not detected, stop pedal.
-                    else 
+                    else if(stopCounter < 3)
                     {
                         std::cout <<"no square found, stop car " << std::endl;
+
+                        msg5.stopping("stop");
+
+                        od4.send(msg5);
+
+                        stopCounter += 1;
+
                     }
 
                     //clears any remaining squares just in case they would linger.
@@ -533,9 +617,65 @@ int32_t main(int32_t argc, char **argv) {
 
 
                     cv::waitKey(1);
+
+//----------____________----_____---__------______---_----____----_--__---______---__------__---_----------_----------------__---_-------_
+
+        
+
+        auto stopDone{[VERBOSE, &byStop](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+                auto msg9 = cluon::extractMessage<opendlv::proxy::stopDone>(std::move(envelope));
+                
+                 // Corresponds to odvd message set
+
+                stop = true;
+                
+                byStop = msg9.done();  
+
+
+                
+                
+            }
+        };
+        od4.dataTrigger(opendlv::proxy::stopDone::ID(), stopDone);
+
+//-------_____---__---__----_-___---___--__----____________----___--__----__---_______----__----__---_-----_---------_____----__--------__---        
+
                 }
             }
         }
+
+//----------____________----_----______---_____-----___---________---__---__---__----____----_-------_----_-------_----_--__-
+
+/*
+
+        auto onDistanceReading{[VERBOSE, &tempDistReading](cluon::data::Envelope &&envelope)
+            // &<variables> will be captured by reference (instead of value only)
+            {
+                auto msg = cluon::extractMessage<opendlv::proxy::DistanceReading>(std::move(envelope));
+                const uint16_t senderStamp = envelope.senderStamp(); // Local variables are not available outside the lambda function
+                tempDistReading = msg.distance(); // Corresponds to odvd message set
+              
+                if(senderStamp == 0){
+
+                    if (VERBOSE)
+                {
+                    frontDistance = tempDistReading;
+                }
+
+                }
+
+
+            }
+        };
+        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), onDistanceReading);
+
+*/
+
+//-------____________----__---------___--______--_____---______-----_____---________------_____---__----_----__---_-------__----_        
+
+
         retCode = 0;
     }
     return retCode;
