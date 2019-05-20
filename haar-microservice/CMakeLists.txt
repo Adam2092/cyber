@@ -83,6 +83,7 @@ if(UNIX)
     endif()
 endif()
 
+set(OpenCV_DIR home/duykamke/opencv/build)
 find_package(OpenCV REQUIRED core highgui imgproc objdetect)
 include_directories(SYSTEM ${OpenCV_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${OpenCV_LIBS})
