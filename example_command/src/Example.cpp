@@ -86,14 +86,19 @@ int32_t main(int32_t argc, char **argv) {
                     od4.dataTrigger(opendlv::proxy::signRec::ID(), commandHandler);  
 
 //----_____________----__________---____--_----__---------_____----____________----__---______--______---__---_----_--_-----
+        int counter = 0;
 
 
-        auto ourTurn{[&od4, VERBOSE, &carReady](cluon::data::Envelope &&envelope)
+        auto ourTurn{[&od4, VERBOSE, &carReady, &counter](cluon::data::Envelope &&envelope)
 
             {
 
-                std::cout << "it is now our turn to go " << std::endl;
+                if (counter == 0){
 
+                std::cout << "it is now our turn to go " << std::endl;
+                counter += 1;
+                
+                }
 
             
             //declear msg to sabe whats recieved from custom message
