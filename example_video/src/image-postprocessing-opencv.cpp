@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+//Base function of finding the geometry was based on squares.cpp from opencv, with alterations to fit our needs. 
 
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
