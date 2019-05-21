@@ -280,11 +280,10 @@ int32_t main(int32_t argc, char **argv) {
                         pedalReq.position(0.0);
                         od4Drive.send(pedalReq);
 
-                    }else{
-
                     }
+                    
 
-                    if(frontDistance > 0.1 && frontDistance < 1){
+                    if(frontDistance > 0.15 && frontDistance < 1.5){
 
                         std::cout << "reacted on square, size is: (" << frontDistance << ") " << std::endl;
 
@@ -381,7 +380,7 @@ int32_t main(int32_t argc, char **argv) {
 
                         std::this_thread::sleep_for(std::chrono::milliseconds(3 * delay));
 
-                         msg3.done(done);
+                        msg3.done(done);
                         od4Command.send(msg3);
 
 

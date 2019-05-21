@@ -86,7 +86,7 @@ void detectAndCountdown( Mat frame ){
   Rect rect = *r;
   rectangle(frame, *r, Scalar(0,0,255), 2, 8,0);
   double carpos = rect.br().x;
-  if(carpos > 500)
+  if(carpos > 320 && carpos < 400)
   {
     carDetected = true;
   }
@@ -134,48 +134,77 @@ int32_t main(int32_t argc, char **argv) {
 
         float frontDistance{0.0};
         float sideDistance{0.0};
+        float tempDistReading{0.0};
 
 
+auto onDistanceReading{[&od4, VERBOSE, &tempDistReading, &frontDistance, &sideDistance, &queue, &countUp, &carReady](cluon::data::Envelope &&envelope)
 
-        auto carQueue{[&od4, VERBOSE, &frontDistance, &sideDistance, &queue, &carDetected, &carReady](cluon::data::Envelope &&envelope)
             // &<variables> will be captured by reference (instead of value only)
+
             {
 
+                auto msg = cluon::extractMessage<opendlv::proxy::DistanceReading>(std::move(envelope));
 
-                auto msg = cluon::extractMessage<opendlv::proxy::startDistance>(std::move(envelope));
-                
-                 // Corresponds to odvd message set
+                const uint16_t senderStamp = envelope.senderStamp(); // Local variables are not available outside the lambda function
 
-                frontDistance = msg.frontDistance();
-                sideDistance = msg.sideDistance();
-                
+                tempDistReading = msg.distance(); // Corresponds to odvd message set
+
                 opendlv::proxy::goTime msg1;
 
+                const int16_t delay{500};
 
 
-                std::cout << "prints if we are in the coutn down function" << std::endl;
-                     const int16_t delay{500};
-                    if(frontDistance > 0.1 && frontDistance < 1){
 
-                        std::cout << "prints if we are in the frontDistance and the distance is: (" << frontDistance << ")" << std::endl;
+                    if (VERBOSE){
 
-                        queue -= 1;
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10 * delay));
-                    }
+                        //std::cout << "prints if we are in the find distance" << std::endl;
 
-                    if(sideDistance > 0.1 && sideDistance < 1){
-
-                        std::cout << "prints if we are in the sideDistance and the distance is : (" << sideDistance << ")" << std::endl;
-
-                        queue -= 1;
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10 * delay));
 
                     }
 
-                    else if (carDetected)
-                    queue--;
+                    if(senderStamp == 0){
+
+                        frontDistance = tempDistReading;
+
+                        if(frontDistance < 0.25 && countUp == false){
+
+                            queue -= 1;
+
+                            std::cout << "detected frontDistance" << std::endl;
+
+
+                            std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
+
+                            frontDistance = 0;
+
+
+                        }
+
+                    }else if(senderStamp == 1){
+
+                        sideDistance = tempDistReading;
+
+                        if(sideDistance < 0.25 && countUp == false){
+
+                            queue -= 1;
+
+                            std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
+
+                            sideDistance = 0;
+
+
+                        }
+
+                    } else if (carDetected && countUp == false) {
+                    queue -= 1;
                     carDetected = false;
+
+                    std::cout << "detected camera" << std::endl;
+
                     std::this_thread::sleep_for(std::chrono::milliseconds(6 * delay));
+
+                }
+
 
                     if(queue <= 0 && countUp == false){
 
@@ -183,13 +212,17 @@ int32_t main(int32_t argc, char **argv) {
                         msg1.ready(carReady);
 
                         od4.send(msg1);
+
+                        //std::cout << "sending go message to command" << std::endl;
                     }
 
 
-                }
-            };
 
-        od4.dataTrigger(opendlv::proxy::startDistance::ID(), carQueue);
+            }
+
+        };
+
+        od4.dataTrigger(opendlv::proxy::DistanceReading::ID(), onDistanceReading);
 
 //----______--------_----____--____----_---_--------___---__---_-------__-------_----_-------_--__---__-------_-------_-------
 
