@@ -1,3 +1,0 @@
-/home/duykamke/cyber/haar/build/CMakeFiles/rebuild_cache.dir
-/home/duykamke/cyber/haar/build/CMakeFiles/DisplayImage.dir
-/home/duykamke/cyber/haar/build/CMakeFiles/edit_cache.dir
